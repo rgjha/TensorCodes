@@ -166,7 +166,7 @@ def make_tensorB(rep):
                 k = int(5.0 * (r/2.0) + (2*m_ra) + m_br)
                 l = int(5.0 * (r/2.0) + (2*m_al) + m_ra)
                 m = int(5.0 * (r/2.0) + (2*m_lb) + m_br)
-                B[j][k][l][m] = Fr((r/2.0), beta)    # 1st !
+                B[j][k][l][m] = Fr(r, beta)    # 1st element
                 
         else:
             
@@ -186,12 +186,37 @@ def make_tensorB(rep):
                             k = int(5.0 * (r/2.0) + (2*m_ar) + m_br)
                             l = int(5.0 * (r/2.0) + (2*m_al) + m_ar)
                             m = int(5.0 * (r/2.0) + (2*m_bl) + m_br)
-                            B[j][k][l][m] = Fr((r/2.0), beta)
+                            B[j][k][l][m] = Fr(r, beta)
 
     return  B
 ##############################
 
 if __name__ == "__main__":
  
-    A = make_tensorA(representation)   
-    B = make_tensorB(representation)    
+    A = make_tensorA(representation)  # Link tensor  
+    B = make_tensorB(representation)  # Plaquette tensor
+
+
+    # "einsum" is a very useful numpy tool for Einstein's summation convention 
+    # See http://ajcr.net/Basic-guide-to-einsum/ for more details 
+    C = np.einsum("ip, pjkl->ijkl", A, B) # Do C_ijkl = A_ip * B_pjkl  
+    D = np.einsum("ijkl, lq->ijkq", C, A) # Do D_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq 
+    D2 = np.einsum("abcd, bpqr->acdpqr", D, D) # Do D2_acdpqr = D_abcd * D_bpqr 
+
+
+    # For ex, construction of D is as :
+
+    #         |                     |                   |                         |          |
+    #         |                     | k                 |                         |          | k 
+    #         |                     |                   |                         |          |
+    #         |    i          p     |     j             |                         |    i     |       j 
+    #         B -------- A -------  B ------- A ------- B ----------      ---->   B -------- D  ------  A ------ B 
+    #         |                     |                   |                         |          |
+    #         |                     |                   |                         |          |
+    #         |                     |  l                |                         |          |
+    #         A                     A                   A                         |          | q 
+    #         |                     |                   |
+    #         |                     |                   |
+    #         |                     |  q                |
+    #         |                     |                   |
+
