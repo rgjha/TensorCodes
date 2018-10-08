@@ -55,6 +55,20 @@ def factorial(N):
 
 
 #####################################
+def contract(A, B, dim):
+    if dim < 0:
+        raise ValueError("Dimension of matrix is negative !!! ")
+        return 0
+
+
+    dummy1 = np.einsum("abcd, bpqr->apcqdr", A, B) # Do dummy1_acdpqr = A_abcd * B_bpqr 
+    out = dummy1.reshape(dim, dim, dim**2, dim**2)  
+
+    return out
+#####################################
+
+
+#####################################
 # Returns Clebsch-Gordon coefficients
 # Alternative : from sympy.physics.quantum.cg import CG 
 
@@ -196,27 +210,35 @@ if __name__ == "__main__":
     A = make_tensorA(representation)  # Link tensor  
     B = make_tensorB(representation)  # Plaquette tensor
 
-
     # "einsum" is a very useful numpy tool for Einstein's summation convention 
+    # Matrix multiplication --> np.einsum('ij,jk->ik', a, b)  # c_ik = a_ij * b_jk
+    # Dot product --> np.einsum('i,i->', a, b)  # c = a_i * b_i 
+    # Outer product --> np.einsum('i,j->ij', a, b)  # c_ij = a_i * b_j  
+    # Transpose --> np.einsum('ij->ji', a)  # c_ji = a_ij
+
     # See http://ajcr.net/Basic-guide-to-einsum/ for more details 
+
     C = np.einsum("ip, pjkl->ijkl", A, B) # Do C_ijkl = A_ip * B_pjkl  
     D = np.einsum("ijkl, lq->ijkq", C, A) # Do D_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq 
-    D2 = np.einsum("abcd, bpqr->acdpqr", D, D) # Do D2_acdpqr = D_abcd * D_bpqr 
+    D2 = contract(D, D, N_r)   # Contract two D's and reshape again into four-index object 
 
+    # For ex, construction of D_ijkq = A_ip * B_pjkl * A_lq is as :
 
-    # For ex, construction of D is as :
+    #         |                     |                   |                         |          |                    |
+    #         |                     | k                 |                         |          | k                  | 
+    #         |                     |                   |                         |          |                    |
+    #         |    i          p     |     j             |         goes to         |    i     |     j              |
+    # ------  B -------- A -------  B ------- A ------- B -------   -->    ------ B -------- D  ------  A  ------ B ------- 
+    #         |                     |                                             |          |
+    #         |                     |                                             |          |
+    #         |                     |  l                                          |          |
+    #         A                     A                                             |          | q 
+    #         |                     |                                             A          |
+    #         |                     |                                             |
+    #         |                     |  q                                          |
+    #         |                     |          
 
-    #         |                     |                   |                         |          |
-    #         |                     | k                 |                         |          | k 
-    #         |                     |                   |                         |          |
-    #         |    i          p     |     j             |                         |    i     |       j 
-    #         B -------- A -------  B ------- A ------- B ----------      ---->   B -------- D  ------  A ------ B 
-    #         |                     |                   |                         |          |
-    #         |                     |                   |                         |          |
-    #         |                     |  l                |                         |          |
-    #         A                     A                   A                         |          | q 
-    #         |                     |                   |
-    #         |                     |                   |
-    #         |                     |  q                |
-    #         |                     |                   |
+    M = np.einsum("iikl->kl", D2)  # Trace over first two-index, periodic bc's. M is the transfer matrix 
+    print "Trace of the transfer matrix is ", np.einsum("ii", M)
+
 
