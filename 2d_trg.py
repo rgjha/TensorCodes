@@ -11,15 +11,25 @@ from sympy import S
 from scipy import special
 import sympy as sym
 from sympy import simplify
+import time 
+
+startTime = time.time()
 
 representation = [0.0, 1.0]              # By definition : 2r to avoid 1/2 integers. 
-dim = [1.0, 2.0]                         # 2r + 1 
-size = int((dim[0]* dim[0]) + (dim[1]* dim[1]))   
+dim = [x+1 for x in representation]      # 2r + 1 
+rep_max = int(max(representation))                 
+N_r = int(sum(np.square(dim))) 
+N_m = int(max(dim))
+
 kappa=0.10                               # Coupling 
 N=2                                      # SU(2) 
 g=sqrt(2)
 beta = 2.0*N/(g**2)
-rho = 1                                  # Length of Higgs field
+rho = 1                                 # Length of Higgs field
+Nt = 4 
+Ns = 3                                  # Number of spatial sites (need to be > 2)
+
+
 A = np.zeros([size, size])                
 B = np.zeros([size, size, size, size])
 #B1 = tf.zeros([size, size, size, size])
@@ -31,8 +41,16 @@ np.set_printoptions(suppress=True)
 '''Note that for rep=0 (r=0) , m can only take value = 0 ; for rep=1 (r=1/2), m = -1/2 or 1/2 
 # Number of distinct values for m = dimension = rep + 1 ; rep = 1, 2
 # We can compress three indices r_a, m_al, m_ar into : 5r_a + 2m_al + m_ar 
-# such that it goes from 0...4 ; 0 when r=m1=m2=0  and 4 when r=1/2, m1=m2=1/2 
-# Would be better to generalize it for r beyond 1/2 [TODO] !'''
+# such that it goes from 0...4 ; 0 when r=m1=m2=0  and 4 when r=1/2, m1=m2=1/2 '''
+
+
+##############################
+def index(a, b, c):
+
+    return int((a)*((a) + 1)*((2.0*a) + 1)/(6.0) + (a+2)*(a/2.0) + (a+1)*b + c)
+    # sum_{j=0}^{j=N} (j+1)^2 = (N+1)*(N+2)*(2*N+3)/(6.0) is used. 
+
+##############################
  
 
 ##############################
@@ -55,14 +73,14 @@ def factorial(N):
 
 
 #####################################
-def contract(A, B, dim):
+def contract_reshape(A, B, dim):
     if dim < 0:
         raise ValueError("Dimension of matrix is negative !!! ")
         return 0
 
 
     dummy1 = np.einsum("abcd, bpqr->apcqdr", A, B) # Do dummy1_acdpqr = A_abcd * B_bpqr 
-    out = dummy1.reshape(dim, dim, dim**2, dim**2)  
+    out = dummy1.reshape(N_r, N_r, dim, dim)  
 
     return out
 #####################################
@@ -220,7 +238,7 @@ if __name__ == "__main__":
 
     C = np.einsum("ip, pjkl->ijkl", A, B) # Do C_ijkl = A_ip * B_pjkl  
     D = np.einsum("ijkl, lq->ijkq", C, A) # Do D_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq 
-    D2 = contract(D, D, N_r)   # Contract two D's and reshape again into four-index object 
+    D2 = contract_reshape(D, D, N_r**2)   # Contract two D's and reshape again into four-index object 
 
     # For ex, construction of D_ijkq = A_ip * B_pjkl * A_lq is as :
 
@@ -236,9 +254,25 @@ if __name__ == "__main__":
     #         |                     |                                             A          |
     #         |                     |                                             |
     #         |                     |  q                                          |
-    #         |                     |          
+    #         |                     
+
+    for i in range(1, Ns-1):
+
+       #No. of sites = i_max + 2 = Ns   
+       D_final = contract_reshape(D2, D, N_r**(i+2)) # Contract and reshape again into four-index object 
+       D2 = D_final 
+
 
     M = np.einsum("iikl->kl", D2)  # Trace over first two-index, periodic bc's. M is the transfer matrix 
     print "Trace of the transfer matrix is ", np.einsum("ii", M)
 
+    Z = M**Nt    # Raise M to number of time-slices 
+    log_trZ = np.log(np.einsum("ii", Z))
+    w, v = LA.eig(Z)
+    log_w_max = np.log(max(w)).real
 
+    print "Free energy is  ", -log_trZ/((Ns+1.0)*Nt)  
+    print "Alternative : free energy is  ", -log_w_max/((Ns+1.0)*Nt) 
+
+runningTime = (time.time()-startTime)
+print "TOTAL RUNNING TIME = " % runningTime
