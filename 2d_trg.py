@@ -1,6 +1,12 @@
 # Tensor formulation of 2d model
 # Started : October 1, 2018 
 
+# This uses the tensor renormalization group (TRG)
+# based on the method presented in 1201.1144 which uses HOSVD 
+# higher order SVD (singular value decomposition). 
+
+# For 'exact' and more details refer to initial commits. 
+
 import math
 from math import sqrt
 import numpy as np
@@ -28,20 +34,15 @@ beta = 2.0*N/(g**2)
 rho = 1                                 # Length of Higgs field
 Nt = 4 
 Ns = 3                                  # Number of spatial sites (need to be > 2)
+vol = Nt * Ns
+norder = 6 
 
 
 A = np.zeros([size, size])                
 B = np.zeros([size, size, size, size])
-#B1 = tf.zeros([size, size, size, size])
-#B1 = tf.Variable(tf.zeros([size, size, size, size]))  # Some experiments with tensor flow. TODO !
 
 np.set_printoptions(precision=8)
 np.set_printoptions(suppress=True)
-
-'''Note that for rep=0 (r=0) , m can only take value = 0 ; for rep=1 (r=1/2), m = -1/2 or 1/2 
-# Number of distinct values for m = dimension = rep + 1 ; rep = 1, 2
-# We can compress three indices r_a, m_al, m_ar into : 5r_a + 2m_al + m_ar 
-# such that it goes from 0...4 ; 0 when r=m1=m2=0  and 4 when r=1/2, m1=m2=1/2 '''
 
 
 ##############################
@@ -50,6 +51,13 @@ def index(a, b, c):
     return int((a)*((a) + 1)*((2.0*a) + 1)/(6.0) + (a+2)*(a/2.0) + (a+1)*b + c)
     # sum_{j=0}^{j=N} (j+1)^2 = (N+1)*(N+2)*(2*N+3)/(6.0) is used. 
 
+##############################
+
+
+##############################
+def dagger(a):
+
+    return np.transpose(a).conj() 
 ##############################
  
 
@@ -223,6 +231,47 @@ def make_tensorB(rep):
     return  B
 ##############################
 
+
+##############################
+
+
+def coarse_trg(matrix, first_time):
+
+    # Singular values to keep in SVD --> norder 
+
+    if first_time == 1 :
+
+
+        norder = Nr**2 
+        T = matrix 
+        M2 = contract_reshape(T, T, N_r**2)
+        M2 = M2.T   # To broadcast M_new = U * D2 * U properly.
+        M = M2.reshape(N_r**2, N_r**4)       
+        MMdag = np.matmul(M, dagger(M))   # MMdag = M' * (M')†
+        U, s, V = LA.svd(MMdag) # Equation (11) of 1201.1144
+        U_trun = U[:,:norder]  # Do not truncate the first one ! 
+        M_new = np.einsum("ia, ijcd, jb->abcd", U_trun, M2, U_trun) # Equation (10) of 1201.1144
+        M_new /= LA.norm(M_new) # M_abcd = U_ia * M_ijcd * U_jb 
+
+
+    else :
+
+        M_new = matrix 
+        M2 = M_new
+        M = M2.reshape(N_r**2, N_r**4)       
+        MMdag = np.matmul(M, dagger(M))   # MMdag = M' * (M')† 
+        U, s, V = LA.svd(MMdag) # Equation (11) of 1201.1144
+        U_trun = U[:,:norder]  # Truncate ! 
+        M_new = np.einsum("ia, ijcd, jb->abcd", U_trun, M2, U_trun)
+        M_new /= LA.norm(M_new)
+
+
+    return M_new
+
+
+##############################
+
+
 if __name__ == "__main__":
  
     A = make_tensorA(representation)  # Link tensor  
@@ -237,16 +286,15 @@ if __name__ == "__main__":
     # See http://ajcr.net/Basic-guide-to-einsum/ for more details 
 
     C = np.einsum("ip, pjkl->ijkl", A, B) # Do C_ijkl = A_ip * B_pjkl  
-    D = np.einsum("ijkl, lq->ijkq", C, A) # Do D_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq 
-    D2 = contract_reshape(D, D, N_r**2)   # Contract two D's and reshape again into four-index object 
+    T = np.einsum("ijkl, lq->ijkq", C, A) # Do T_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq 
 
-    # For ex, construction of D_ijkq = A_ip * B_pjkl * A_lq is as :
+    # For ex, construction of T_ijkq = A_ip * B_pjkl * A_lq is as :
 
     #         |                     |                   |                         |          |                    |
     #         |                     | k                 |                         |          | k                  | 
     #         |                     |                   |                         |          |                    |
     #         |    i          p     |     j             |         goes to         |    i     |     j              |
-    # ------  B -------- A -------  B ------- A ------- B -------   -->    ------ B -------- D  ------  A  ------ B ------- 
+    # ------  B -------- A -------  B ------- A ------- B -------   -->    ------ B -------- T  ------  A  ------ B ------- 
     #         |                     |                                             |          |
     #         |                     |                                             |          |
     #         |                     |  l                                          |          |
@@ -256,23 +304,12 @@ if __name__ == "__main__":
     #         |                     |  q                                          |
     #         |                     
 
-    for i in range(1, Ns-1):
+    
+    CGS1 = coarse_trg(T, 1)  # T, first-time 
+    CGS2 = coarse_trg(CGS1, 0) 
+ 
+    #print ("Shape of CGS2 is", np.shape(CGS2))
 
-       #No. of sites = i_max + 2 = Ns   
-       D_final = contract_reshape(D2, D, N_r**(i+2)) # Contract and reshape again into four-index object 
-       D2 = D_final 
-
-
-    M = np.einsum("iikl->kl", D2)  # Trace over first two-index, periodic bc's. M is the transfer matrix 
-    print "Trace of the transfer matrix is ", np.einsum("ii", M)
-
-    Z = M**Nt    # Raise M to number of time-slices 
-    log_trZ = np.log(np.einsum("ii", Z))
-    w, v = LA.eig(Z)
-    log_w_max = np.log(max(w)).real
-
-    print "Free energy is  ", -log_trZ/((Ns+1.0)*Nt)  
-    print "Alternative : free energy is  ", -log_w_max/((Ns+1.0)*Nt) 
 
 runningTime = (time.time()-startTime)
 print "TOTAL RUNNING TIME = " % runningTime
