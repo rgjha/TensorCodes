@@ -7,6 +7,9 @@
 
 # For 'exact' and more details refer to initial commits. 
 
+# Coarse grained tensor renormalization group (TRG) method
+# was introduced in 0611687 by Levin and Nave. 
+
 import math
 from math import sqrt
 import numpy as np
@@ -20,6 +23,7 @@ from sympy import simplify
 import time 
 
 startTime = time.time()
+print ("STARTED : " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 representation = [0.0, 1.0]              # By definition : 2r to avoid 1/2 integers. 
 dim = [x+1 for x in representation]      # 2r + 1 
@@ -31,11 +35,12 @@ kappa=0.10                               # Coupling
 N=2                                      # SU(2) 
 g=sqrt(2)
 beta = 2.0*N/(g**2)
-rho = 1                                 # Length of Higgs field
+rho = 1                                  # Length of Higgs field
+Nlayers = 4                             
 Nt = 4 
-Ns = 3                                  # Number of spatial sites (need to be > 2)
+Ns = int(2**((Nlayers+2)/(2.0)))        # Number of spatial sites (need to be > 2)
 vol = Nt * Ns
-norder = 6 
+D_bond = 20
 
 
 A = np.zeros([size, size])                
@@ -50,7 +55,6 @@ def index(a, b, c):
 
     return int((a)*((a) + 1)*((2.0*a) + 1)/(6.0) + (a+2)*(a/2.0) + (a+1)*b + c)
     # sum_{j=0}^{j=N} (j+1)^2 = (N+1)*(N+2)*(2*N+3)/(6.0) is used. 
-
 ##############################
 
 
@@ -87,8 +91,8 @@ def contract_reshape(A, B, dim):
         return 0
 
 
-    dummy1 = np.einsum("abcd, bpqr->apcqdr", A, B) # Do dummy1_acdpqr = A_abcd * B_bpqr 
-    out = dummy1.reshape(N_r, N_r, dim, dim)  
+    dummy1 = np.einsum("abcd, efdh->aebfch", A, B) # Do dummy1_acdpqr = A_abcd * B_bpqr 
+    out = dummy1.reshape(dim, dim, N_r, N_r)  
 
     return out
 #####################################
@@ -97,7 +101,6 @@ def contract_reshape(A, B, dim):
 #####################################
 # Returns Clebsch-Gordon coefficients
 # Alternative : from sympy.physics.quantum.cg import CG 
-
 def CGC(j1, m1, j2, m2, j, m):
 
     if (m == m1+m2) and (abs(j1 - j2) <= j <= (j1 + j2)) and (-j <= m <= j) and (-j1 <= m1 <= j1) and (-j2 <= m2 <= j2):
@@ -187,6 +190,7 @@ def make_tensorA(rep):
                                 CG1 = CGC((r_a/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_b/2.0), m_bl)
                                 CG2 = CGC((r_a/2.0), m_ar, (sigma/2.0), (m_bl - m_al), (r_b/2.0), m_br) 
                                 A[k][l] += Fr((sigma), kappa) *  CG1  *  CG2 / (r_b + 1)
+
     return A  
 ##############################
 
@@ -233,43 +237,49 @@ def make_tensorB(rep):
 
 
 ##############################
+def start_coarse_graining(matrix, order):
+
+    # Truncation determined by --> norder
+
+    T = matrix 
+    M2 = contract_reshape(T, T, N_r**2)  # 4-index object
+
+    # First step 
+    M_prime = M.reshape(N_r**2, N_r**4)      
+    MMdag_prime = np.matmul(M_prime, dagger(M_prime))   # MMdag = M' * (M')†  
+    U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
+    # Do not truncate the first one ! 
+    M_new = np.einsum("ia, ijcd, jb->abcd", U, M, U) # Equation (10) of 1201.1144
+    M = M_new/LA.norm(M_new) # Reassign 
 
 
-def coarse_trg(matrix, first_time):
-
-    # Singular values to keep in SVD --> norder 
-
-    if first_time == 1 :
-
-
-        norder = Nr**2 
-        T = matrix 
-        M2 = contract_reshape(T, T, N_r**2)
-        M2 = M2.T   # To broadcast M_new = U * D2 * U properly.
-        M = M2.reshape(N_r**2, N_r**4)       
-        MMdag = np.matmul(M, dagger(M))   # MMdag = M' * (M')†
-        U, s, V = LA.svd(MMdag) # Equation (11) of 1201.1144
-        U_trun = U[:,:norder]  # Do not truncate the first one ! 
-        M_new = np.einsum("ia, ijcd, jb->abcd", U_trun, M2, U_trun) # Equation (10) of 1201.1144
-        M_new /= LA.norm(M_new) # M_abcd = U_ia * M_ijcd * U_jb 
-
-
-    else :
-
-        M_new = matrix 
-        M2 = M_new
-        M = M2.reshape(N_r**2, N_r**4)       
-        MMdag = np.matmul(M, dagger(M))   # MMdag = M' * (M')† 
-        U, s, V = LA.svd(MMdag) # Equation (11) of 1201.1144
-        U_trun = U[:,:norder]  # Truncate ! 
-        M_new = np.einsum("ia, ijcd, jb->abcd", U_trun, M2, U_trun)
-        M_new /= LA.norm(M_new)
-
-
-    return M_new
+    # Second step aka first truncation step 
+    M = contract_reshape(M, M, N_r**4)
+    M_prime = M.reshape(N_r**4, N_r**6)
+    MMdag_prime = np.matmul(M_prime, dagger(M_prime))
+    U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
+    U = U[:,:D_bond]   
+    M_new = np.einsum("ia, ijcd, jb->abcd", U, M, U)  # 
+    M = M_new/LA.norm(M_new)
+    
+    return M
+##############################
 
 
 ##############################
+def coarse_graining(matrix, D_bond):
+
+    M = contract_reshape(matrix, matrix, D_bond**2) # --> (40,40,5,5) 
+    M_prime = M.reshape(D_bond**2, (N_r**2)*(D_bond**2))
+    MMdag_prime = np.matmul(M_prime, dagger(M_prime))   # MMdag = M' * (M')† 
+    U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
+    U = U[:,:D_bond]   
+    M_new = np.einsum("ia, ijcd, jb->abcd", U, M, U)  #  
+    M = M_new/LA.norm(M_new)
+
+    return M 
+##############################
+
 
 
 if __name__ == "__main__":
@@ -285,10 +295,24 @@ if __name__ == "__main__":
 
     # See http://ajcr.net/Basic-guide-to-einsum/ for more details 
 
-    C = np.einsum("ip, pjkl->ijkl", A, B) # Do C_ijkl = A_ip * B_pjkl  
-    T = np.einsum("ijkl, lq->ijkq", C, A) # Do T_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq 
+    # But "einsum" is slow. We can use sequence of reshape, np.dot to contract 
 
+    B1 = B.reshape(N_r, N_r**3)
+    C = np.dot((A), B1)
+    C = C.reshape(N_r, N_r, N_r, N_r) 
+    # Slow Alternative -> C = np.einsum("ip, pjkl->ijkl", A, B) # Do C_ijkl = A_ip * B_pjkl 
+
+    C1 = C.reshape(N_r**3, N_r)
+    T = np.dot((C1), A)
+    T = T.reshape(N_r, N_r, N_r, N_r)
+    # Slow alternative : T = np.einsum("ijkl, lq->ijkq", C, A) # Do T_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq)
+
+
+    T /= LA.norm(T) 
+
+    # T is also sometimes called as "fundamental tensor".
     # For ex, construction of T_ijkq = A_ip * B_pjkl * A_lq is as :
+    # Indices are always written in the order : left, right, top, bottom, up, down 
 
     #         |                     |                   |                         |          |                    |
     #         |                     | k                 |                         |          | k                  | 
@@ -305,11 +329,15 @@ if __name__ == "__main__":
     #         |                     
 
     
-    CGS1 = coarse_trg(T, 1)  # T, first-time 
-    CGS2 = coarse_trg(CGS1, 0) 
- 
-    #print ("Shape of CGS2 is", np.shape(CGS2))
+    CGS = start_coarse_graining(T)  
+        
+    count = 2 # coarse_graining done twice before this 
+    for i in range (0,Nlayers-2):
+        CGS1 = coarse_graining(CGS, D_bond) 
+        count = count+1
+        CGS = CGS1 
+            
 
+print ("Finished",count,"coarse graining steps keeping ",D_bond,"states")
+print ("COMPLETED : " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-runningTime = (time.time()-startTime)
-print "TOTAL RUNNING TIME = " % runningTime
