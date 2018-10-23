@@ -10,6 +10,11 @@
 # Coarse grained tensor renormalization group (TRG) method
 # was introduced in 0611687 by Levin and Nave. 
 
+# https://arxiv.org/abs/1801.04183 discusses the tensor network 
+# formulation for two-dimensional lattice N=1 Wess-Zumino model 
+
+
+
 import math
 from math import sqrt
 import numpy as np
@@ -43,8 +48,8 @@ vol = Nt * Ns
 D_bond = 20
 
 
-A = np.zeros([size, size])                
-B = np.zeros([size, size, size, size])
+A = np.zeros([N_r, N_r])                
+B = np.zeros([N_r, N_r, N_r, N_r])
 
 np.set_printoptions(precision=8)
 np.set_printoptions(suppress=True)
@@ -93,6 +98,9 @@ def contract_reshape(A, B, dim):
     Adum = A.reshape((dim)*N_r, N_r)
     Bdum = B.reshape(N_r, N_r*dim)  
     dummy1 = np.dot(Adum, Bdum) # Alternative : np.einsum("abcd, efdh->aebfch", A, B) # Do dummy1_apcqdr = A_abcd * B_efdh 
+
+    # Another equivalent way : 
+    dummy1 = np.tensordot(A,B,axes=([3,2]))
     out = dummy1.reshape(dim, dim, N_r, N_r)  
 
     return out
@@ -287,6 +295,12 @@ def coarse_graining(matrix, D_bond):
     UM = UM.reshape(N_r, N_r, D_bond, D_bond**2)
     UMU = np.dot((UM), U)
     M_new = UMU.T   # Alternate : np.einsum("ia, ijcd, jb->abcd", U, M, U)
+    
+    # Another way to find M_new is to use np.tensordot as
+     
+    M_new = np.tensordot(U,M,axes=([0,0])) 
+    M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
+    M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd 
     M = M_new/LA.norm(M_new)
 
     return M 
