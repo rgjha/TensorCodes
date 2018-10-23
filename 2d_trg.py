@@ -90,8 +90,9 @@ def contract_reshape(A, B, dim):
         raise ValueError("Dimension of matrix is negative !!! ")
         return 0
 
-
-    dummy1 = np.einsum("abcd, efdh->aebfch", A, B) # Do dummy1_acdpqr = A_abcd * B_bpqr 
+    Adum = A.reshape((dim)*N_r, N_r)
+    Bdum = B.reshape(N_r, N_r*dim)  
+    dummy1 = np.dot(Adum, Bdum) # Alternative : np.einsum("abcd, efdh->aebfch", A, B) # Do dummy1_apcqdr = A_abcd * B_efdh 
     out = dummy1.reshape(dim, dim, N_r, N_r)  
 
     return out
@@ -249,32 +250,43 @@ def start_coarse_graining(matrix, order):
     MMdag_prime = np.matmul(M_prime, dagger(M_prime))   # MMdag = M' * (M')†  
     U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
     # Do not truncate the first one ! 
-    M_new = np.einsum("ia, ijcd, jb->abcd", U, M, U) # Equation (10) of 1201.1144
-    M = M_new/LA.norm(M_new) # Reassign 
 
+    UM = np.dot((U.T), M_prime)  
+    UMU = np.dot((UM.T), U)     
+    M_new = UMU.reshape(N_r**2, N_r**2, N_r, N_r) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U)
+    
+    M = M_new/LA.norm(M_new) # Reassign  
 
-    # Second step aka first truncation step 
+    # Second step a.k.a first truncation step 
     M = contract_reshape(M, M, N_r**4)
     M_prime = M.reshape(N_r**4, N_r**6)
-    MMdag_prime = np.matmul(M_prime, dagger(M_prime))
-    U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
+    MMdag_prime = np.dot(M_prime, dagger(M_prime))
+    U, s, V = LA.svd(MMdag_prime)
     U = U[:,:D_bond]   
-    M_new = np.einsum("ia, ijcd, jb->abcd", U, M, U)  # 
-    M = M_new/LA.norm(M_new)
-    
+
+    UM = np.dot((U.T), M_prime) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U) 
+    UM = UM.reshape(N_r, N_r, D_bond, N_r**4)
+    UMU = np.dot((UM), U)
+
+    UMU = UMU.reshape(D_bond, D_bond, N_r, N_r)
+    M = UMU/LA.norm(UMU) 
+
     return M
 ##############################
 
 
 ##############################
 def coarse_graining(matrix, D_bond):
-
-    M = contract_reshape(matrix, matrix, D_bond**2) # --> (40,40,5,5) 
+    
+    M = contract_reshape(matrix, matrix, D_bond**2) 
     M_prime = M.reshape(D_bond**2, (N_r**2)*(D_bond**2))
-    MMdag_prime = np.matmul(M_prime, dagger(M_prime))   # MMdag = M' * (M')† 
-    U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
+    MMdag_prime = np.dot(M_prime, dagger(M_prime)) 
+    U, s, V = LA.svd(MMdag_prime)
     U = U[:,:D_bond]   
-    M_new = np.einsum("ia, ijcd, jb->abcd", U, M, U)  #  
+    UM = np.dot((U.T), M_prime)
+    UM = UM.reshape(N_r, N_r, D_bond, D_bond**2)
+    UMU = np.dot((UM), U)
+    M_new = UMU.T   # Alternate : np.einsum("ia, ijcd, jb->abcd", U, M, U)
     M = M_new/LA.norm(M_new)
 
     return M 
@@ -335,7 +347,12 @@ if __name__ == "__main__":
     for i in range (0,Nlayers-2):
         CGS1 = coarse_graining(CGS, D_bond) 
         count = count+1
-        CGS = CGS1 
+        CGS = CGS1
+
+    M = np.einsum("klii->kl", CGS)  # Trace over two indices, periodic bc's
+    print ("Size of M is ", np.shape(M)) 
+    print ("Norm of M is", LA.norm(M))
+    print ("Trace of M is ", np.einsum("ii", M)) 
             
 
 print ("Finished",count,"coarse graining steps keeping ",D_bond,"states")
