@@ -259,10 +259,17 @@ def start_coarse_graining(matrix, order):
     U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
     # Do not truncate the first one ! 
 
-    UM = np.dot((U.T), M_prime)  
-    UMU = np.dot((UM.T), U)     
-    M_new = UMU.reshape(N_r**2, N_r**2, N_r, N_r) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U)
+    #UM = np.dot((U.T), M_prime)  
+    #UMU = np.dot((UM.T), U)     
+    #M_new = UMU.reshape(N_r**2, N_r**2, N_r, N_r) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U)
     
+    M_new = np.tensordot(U,M,axes=([0,0])) 
+    M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
+    M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd
+
+    # Timings are similar, but results differ. TODO
+
+
     M = M_new/LA.norm(M_new) # Reassign  
 
     # Second step a.k.a first truncation step 
@@ -272,11 +279,16 @@ def start_coarse_graining(matrix, order):
     U, s, V = LA.svd(MMdag_prime)
     U = U[:,:D_bond]   
 
-    UM = np.dot((U.T), M_prime) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U) 
-    UM = UM.reshape(N_r, N_r, D_bond, N_r**4)
-    UMU = np.dot((UM), U)
+    #UM = np.dot((U.T), M_prime) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U) 
+    #UM = UM.reshape(N_r, N_r, D_bond, N_r**4)
+    #UMU = np.dot((UM), U)
+    #UMU = UMU.reshape(D_bond, D_bond, N_r, N_r)
 
-    UMU = UMU.reshape(D_bond, D_bond, N_r, N_r)
+    M_new = np.tensordot(U,M,axes=([0,0])) 
+    M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
+    M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd
+    UMU = M_new 
+
     M = UMU/LA.norm(UMU) 
 
     return M
@@ -291,10 +303,11 @@ def coarse_graining(matrix, D_bond):
     MMdag_prime = np.dot(M_prime, dagger(M_prime)) 
     U, s, V = LA.svd(MMdag_prime)
     U = U[:,:D_bond]   
-    UM = np.dot((U.T), M_prime)
-    UM = UM.reshape(N_r, N_r, D_bond, D_bond**2)
-    UMU = np.dot((UM), U)
-    M_new = UMU.T   # Alternate : np.einsum("ia, ijcd, jb->abcd", U, M, U)
+    
+    #UM = np.dot((U.T), M_prime)
+    #UM = UM.reshape(N_r, N_r, D_bond, D_bond**2)
+    #UMU = np.dot((UM), U)
+    #M_new = UMU.T   # Alternate : np.einsum("ia, ijcd, jb->abcd", U, M, U)
     
     # Another way to find M_new is to use np.tensordot as
      
