@@ -10,22 +10,31 @@
 # Coarse grained tensor renormalization group (TRG) method
 # was introduced in 0611687 by Levin and Nave. 
 
+# Then in 1201.1144, by using the higher-order SVD, improvements 
+# were made. Note that these TRG methods fail at criticality because 
+# there still exists short-ranged correlations.
+
+# In 2015, PRL 115, 180405 (arxiv : 1412.0732) introduced
+# a new method called Tensor Network Renormalization (TNR)
+# which performs better than TRG. With bond-dimension
+# which is called D_cut in this code, TNR improves 
+# exponentially compared to TRG which is polynomial. 
+# Note that cost for both scales as O(D_cut**(2d-1)) i.e 
+# O(D_cut**7) here. 
+
 # https://arxiv.org/abs/1801.04183 discusses the tensor network 
 # formulation for two-dimensional lattice N=1 Wess-Zumino model 
 
-
-
+import sys
 import math
 from math import sqrt
 import numpy as np
-import tensorflow as tf
 import scipy as sp                       # For Bessel function 
-from sympy.physics.quantum.cg import CG  # For CG coefficients (for now, using the function below) 
-from sympy import S
 from scipy import special
-import sympy as sym
-from sympy import simplify
+from numpy import linalg as LA
+from numpy import ndarray
 import time 
+import datetime 
 
 startTime = time.time()
 print ("STARTED : " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
@@ -45,7 +54,7 @@ Nlayers = 4
 Nt = 4 
 Ns = int(2**((Nlayers+2)/(2.0)))        # Number of spatial sites (need to be > 2)
 vol = Nt * Ns
-D_bond = 20
+D_cut = 30
 
 
 A = np.zeros([N_r, N_r])                
@@ -246,7 +255,7 @@ def make_tensorB(rep):
 
 
 ##############################
-def start_coarse_graining(matrix, order):
+def start_coarse_graining(matrix, order, eps):
 
     # Truncation determined by --> norder
 
@@ -259,6 +268,7 @@ def start_coarse_graining(matrix, order):
     U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
     # Do not truncate the first one ! 
 
+
     #UM = np.dot((U.T), M_prime)  
     #UMU = np.dot((UM.T), U)     
     #M_new = UMU.reshape(N_r**2, N_r**2, N_r, N_r) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U)
@@ -267,45 +277,57 @@ def start_coarse_graining(matrix, order):
     M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
     M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd
 
-    # Timings are similar, but results differ. TODO
+    # Timings are similar for tensordot versus dot+reshape 
+    # Checked that tensordot agrees with einsum
 
 
-    M = M_new/LA.norm(M_new) # Reassign  
+    M = M_new/LA.norm(M_new)
 
     # Second step a.k.a first truncation step 
     M = contract_reshape(M, M, N_r**4)
     M_prime = M.reshape(N_r**4, N_r**6)
     MMdag_prime = np.dot(M_prime, dagger(M_prime))
-    U, s, V = LA.svd(MMdag_prime)
-    U = U[:,:D_bond]   
+    U, s1, V = LA.svd(MMdag_prime)
+
+    if np.size(U,1) > D_cut: 
+
+        s = s1[:D_cut] 
+        U = U[:,:D_cut] 
+        eps += 1.0 - (sum(s)/sum(s1))
+      
 
     #UM = np.dot((U.T), M_prime) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U) 
-    #UM = UM.reshape(N_r, N_r, D_bond, N_r**4)
+    #UM = UM.reshape(N_r, N_r, D_cut, N_r**4)
     #UMU = np.dot((UM), U)
-    #UMU = UMU.reshape(D_bond, D_bond, N_r, N_r)
+    #UMU = UMU.reshape(D_cut, D_cut, N_r, N_r)
 
     M_new = np.tensordot(U,M,axes=([0,0])) 
     M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
     M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd
-    UMU = M_new 
 
-    M = UMU/LA.norm(UMU) 
+    norm = LA.norm(M_new)
+    print ("Norm of M1 is = ", norm)
+    if norm != 0:
+        M = M_new/LA.norm(M_new)
 
-    return M
+    return M, eps
 ##############################
 
 
 ##############################
-def coarse_graining(matrix, D_bond):
+def coarse_graining(matrix, D_cut, eps):
     
-    M = contract_reshape(matrix, matrix, D_bond**2) 
-    M_prime = M.reshape(D_bond**2, (N_r**2)*(D_bond**2))
+    M = contract_reshape(matrix, matrix, D_cut**2) 
+    M_prime = M.reshape(D_cut**2, (N_r**2)*(D_cut**2))
     MMdag_prime = np.dot(M_prime, dagger(M_prime)) 
-    U, s, V = LA.svd(MMdag_prime)
-    U = U[:,:D_bond]   
+    U, s1, V = LA.svd(MMdag_prime)
+
+    U = U[:,:D_cut]   
+    s = s1[:D_cut]
+    eps += 1.0 - ((sum(s))/(sum(s1))) 
     
     #UM = np.dot((U.T), M_prime)
-    #UM = UM.reshape(N_r, N_r, D_bond, D_bond**2)
+    #UM = UM.reshape(N_r, N_r, D_cut, D_cut**2)
     #UMU = np.dot((UM), U)
     #M_new = UMU.T   # Alternate : np.einsum("ia, ijcd, jb->abcd", U, M, U)
     
@@ -314,9 +336,13 @@ def coarse_graining(matrix, D_bond):
     M_new = np.tensordot(U,M,axes=([0,0])) 
     M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
     M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd 
-    M = M_new/LA.norm(M_new)
 
-    return M 
+    norm = LA.norm(M_new)
+    print ("Norm of M (%.4g) is = " % count, norm)
+    if norm != 0:
+        M = M_new/LA.norm(M_new) 
+
+    return M, eps 
 ##############################
 
 
@@ -336,43 +362,42 @@ if __name__ == "__main__":
 
     # But "einsum" is slow. We can use sequence of reshape, np.dot to contract 
 
-    B1 = B.reshape(N_r, N_r**3)
-    C = np.dot((A), B1)
-    C = C.reshape(N_r, N_r, N_r, N_r) 
-    # Slow Alternative -> C = np.einsum("ip, pjkl->ijkl", A, B) # Do C_ijkl = A_ip * B_pjkl 
+    L = LA.cholesky(A) 
+    T = np.einsum("pjkl, pa, jb, kc, ld", B, L, L, L, L)
 
-    C1 = C.reshape(N_r**3, N_r)
-    T = np.dot((C1), A)
-    T = T.reshape(N_r, N_r, N_r, N_r)
-    # Slow alternative : T = np.einsum("ijkl, lq->ijkq", C, A) # Do T_ijkq = C_ijkl * A_lq = A_ip * B_pjkl * A_lq)
+    # Unaware if tensor.dot can take > 2 tensors to contract ! TODO
+    # Alternative : 
+    #dum = np.tensordot(B,A,axes=([0,0]))   # BA_jkla 
+    #dum = np.tensordot(dum,A,axes=([0,0])) # BAA_klab 
+    #dum = np.tensordot(dum,A,axes=([0,0])) # BAAA_labc
+    #T = np.tensordot(dum,A,axes=([0,0])) # BAAAA_abcd 
 
+    print ("Norm of fund. tensor is T = ", LA.norm(T))
 
-    T /= LA.norm(T) 
+    T /= LA.norm(T)  
 
-    # T is also sometimes called as "fundamental tensor".
-    # For ex, construction of T_ijkq = A_ip * B_pjkl * A_lq is as :
+    # T is also sometimes called as "fundamental tensor". 
     # Indices are always written in the order : left, right, top, bottom, up, down 
-
-    #         |                     |                   |                         |          |                    |
-    #         |                     | k                 |                         |          | k                  | 
-    #         |                     |                   |                         |          |                    |
-    #         |    i          p     |     j             |         goes to         |    i     |     j              |
-    # ------  B -------- A -------  B ------- A ------- B -------   -->    ------ B -------- T  ------  A  ------ B ------- 
-    #         |                     |                                             |          |
-    #         |                     |                                             |          |
-    #         |                     |  l                                          |          |
-    #         A                     A                                             |          | q 
-    #         |                     |                                             A          |
-    #         |                     |                                             |
-    #         |                     |  q                                          |
-    #         |                     
-
+    # For ex, construction of T_ijkq = A_ip * B_pjkl * A_lq is as :
+    
+ #               | c     
+    #  -- A -- B -- A -- B -- A -- 
+    #     |    |    | k  |    |         
+    #     |  a |  p | j  |  b |     goes to 
+    #  -- B -- A -- B -- A -- B--    --->    T_abcd 
+    #     |    |    |    |    |         
+    #     |    |    |l   |    |          
+    #  -- A -- B -- A -- B -- A --
+    #     |    |    |d   |    |  
+    #     |    |    |    |    |
+    #  -- B -- A -- B -- A -- B -- 
+        
     
     CGS = start_coarse_graining(T)  
         
-    count = 2 # coarse_graining done twice before this 
+    count = 2 # coarse_graining done twice before this
     for i in range (0,Nlayers-2):
-        CGS1 = coarse_graining(CGS, D_bond) 
+        CGS1 = coarse_graining(CGS, D_cut) 
         count = count+1
         CGS = CGS1
 
@@ -382,6 +407,6 @@ if __name__ == "__main__":
     print ("Trace of M is ", np.einsum("ii", M)) 
             
 
-print ("Finished",count,"coarse graining steps keeping ",D_bond,"states")
+print ("Finished",count,"coarse graining steps keeping ",D_cut,"states")
 print ("COMPLETED : " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
