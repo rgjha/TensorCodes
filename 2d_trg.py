@@ -1,8 +1,8 @@
 # Tensor formulation of 2d model
 # Started : October 1, 2018 
 
-# This uses the tensor renormalization group (TRG)
-# based on the method presented in 1201.1144 which uses HOSVD 
+# This code uses modified version of the tensor renormalization 
+# group (TRG) based on the method presented in 1201.1144 which uses HOSVD 
 # higher order SVD (singular value decomposition). 
 
 # For 'exact' and more details refer to initial commits. 
@@ -22,6 +22,8 @@
 # Note that cost for both scales as O(D_cut**(2d-1)) i.e 
 # O(D_cut**7) here. 
 
+# Another good reference is 1510.03333 with some details 
+
 # https://arxiv.org/abs/1801.04183 discusses the tensor network 
 # formulation for two-dimensional lattice N=1 Wess-Zumino model 
 
@@ -36,10 +38,16 @@ from numpy import ndarray
 import time 
 import datetime 
 
-startTime = time.time()
-print ("STARTED : " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+if len(sys.argv) < 2:
+  print("Usage:", str(sys.argv[0]), "<Verbose or not>")
+  sys.exit(1)
 
-representation = [0.0, 1.0]              # By definition : 2r to avoid 1/2 integers. 
+
+startTime = time.time()
+print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+print ("-----------------------------------------------------------------")
+
+representation = [0.0, 1.0]              # By definition : 2r 
 dim = [x+1 for x in representation]      # 2r + 1 
 rep_max = int(max(representation))                 
 N_r = int(sum(np.square(dim))) 
@@ -50,11 +58,22 @@ N=2                                      # SU(2)
 g=sqrt(2)
 beta = 2.0*N/(g**2)
 rho = 1                                  # Length of Higgs field
-Nlayers = 4                             
-Nt = 4 
-Ns = int(2**((Nlayers+2)/(2.0)))        # Number of spatial sites (need to be > 2)
+Niters = 4                             
+Ns = int(2**((Niters)))  
+Nt = Ns      
 vol = Nt * Ns
-D_cut = 30
+D_cut = 40
+
+# Time ~ 15 sec with D_cut=40 and Niters=6
+# Time ~ 22 sec with D_cut=40 and Niters=8
+# Time ~ 30 sec with D_cut=40 and Niters=10
+
+if D_cut <= N_r**2:
+  print("Usage: D_cut must be greater than N_r**2 for now")
+  sys.exit(1)
+
+
+verbose = int(sys.argv[1]) 
 
 
 A = np.zeros([N_r, N_r])                
@@ -255,38 +274,18 @@ def make_tensorB(rep):
 
 
 ##############################
-def start_coarse_graining(matrix, order, eps):
+def coarse_graining(matrix, eps, trM, count):
 
-    # Truncation determined by --> norder
+    T = matrix  
 
-    T = matrix 
-    M2 = contract_reshape(T, T, N_r**2)  # 4-index object
+    if count >= 2:
+        d = int(D_cut**2)
+    else:
+        d = int(N_r**(2*(count+1)))
 
-    # First step 
-    M_prime = M.reshape(N_r**2, N_r**4)      
-    MMdag_prime = np.matmul(M_prime, dagger(M_prime))   # MMdag = M' * (M')†  
-    U, s, V = LA.svd(MMdag_prime) # Equation (11) of 1201.1144
-    # Do not truncate the first one ! 
-
-
-    #UM = np.dot((U.T), M_prime)  
-    #UMU = np.dot((UM.T), U)     
-    #M_new = UMU.reshape(N_r**2, N_r**2, N_r, N_r) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U)
-    
-    M_new = np.tensordot(U,M,axes=([0,0])) 
-    M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
-    M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd
-
-    # Timings are similar for tensordot versus dot+reshape 
-    # Checked that tensordot agrees with einsum
-
-
-    M = M_new/LA.norm(M_new)
-
-    # Second step a.k.a first truncation step 
-    M = contract_reshape(M, M, N_r**4)
-    M_prime = M.reshape(N_r**4, N_r**6)
-    MMdag_prime = np.dot(M_prime, dagger(M_prime))
+    M = contract_reshape(T, T, d)   
+    M_prime = M.reshape(d, d*(N_r**2))      
+    MMdag_prime = np.dot(M_prime, dagger(M_prime))    
     U, s1, V = LA.svd(MMdag_prime)
 
     if np.size(U,1) > D_cut: 
@@ -294,55 +293,29 @@ def start_coarse_graining(matrix, order, eps):
         s = s1[:D_cut] 
         U = U[:,:D_cut] 
         eps += 1.0 - (sum(s)/sum(s1))
-      
 
-    #UM = np.dot((U.T), M_prime) # Alternative : np.einsum("ia, ijcd, jb->abcd", U, M, U) 
-    #UM = UM.reshape(N_r, N_r, D_cut, N_r**4)
-    #UMU = np.dot((UM), U)
-    #UMU = UMU.reshape(D_cut, D_cut, N_r, N_r)
+    count += 1 
 
-    M_new = np.tensordot(U,M,axes=([0,0])) 
-    M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
+    M_new = np.tensordot(U,M,axes=([0,0])) # U_ia * M_ijcd = UM_ajcd 
+    M_new = np.tensordot(M_new,U,axes=([1,0])) # UM_ajcd * U_jb --> UMU_acdb 
     M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd
-
     norm = LA.norm(M_new)
-    print ("Norm of M1 is = ", norm)
+
+    if verbose:
+        print ("Norm of T(%.4g) is = " % count, norm)
+    #lnZ += 2 ** (no_iter-1) * np.log (norm)
+    trM += 2 ** (Niters-count) * np.log(norm) 
+
     if norm != 0:
-        M = M_new/LA.norm(M_new)
+        T = M_new/norm 
 
-    return M, eps
-##############################
+    else:
+      print ("Norm of tensor is = ", norm)  
+      sys.exit(1)
+
+    return T, eps, trM, count
 
 
-##############################
-def coarse_graining(matrix, D_cut, eps):
-    
-    M = contract_reshape(matrix, matrix, D_cut**2) 
-    M_prime = M.reshape(D_cut**2, (N_r**2)*(D_cut**2))
-    MMdag_prime = np.dot(M_prime, dagger(M_prime)) 
-    U, s1, V = LA.svd(MMdag_prime)
-
-    U = U[:,:D_cut]   
-    s = s1[:D_cut]
-    eps += 1.0 - ((sum(s))/(sum(s1))) 
-    
-    #UM = np.dot((U.T), M_prime)
-    #UM = UM.reshape(N_r, N_r, D_cut, D_cut**2)
-    #UMU = np.dot((UM), U)
-    #M_new = UMU.T   # Alternate : np.einsum("ia, ijcd, jb->abcd", U, M, U)
-    
-    # Another way to find M_new is to use np.tensordot as
-     
-    M_new = np.tensordot(U,M,axes=([0,0])) 
-    M_new = np.tensordot(M_new,U,axes=([1,0])) # U_ia * M_ijcd * U_jb --> UMU_acdb 
-    M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd 
-
-    norm = LA.norm(M_new)
-    print ("Norm of M (%.4g) is = " % count, norm)
-    if norm != 0:
-        M = M_new/LA.norm(M_new) 
-
-    return M, eps 
 ##############################
 
 
@@ -372,7 +345,7 @@ if __name__ == "__main__":
     #dum = np.tensordot(dum,A,axes=([0,0])) # BAAA_labc
     #T = np.tensordot(dum,A,axes=([0,0])) # BAAAA_abcd 
 
-    print ("Norm of fund. tensor is T = ", LA.norm(T))
+    print ("Norm of fund. tensor is T(0) = ", LA.norm(T))
 
     T /= LA.norm(T)  
 
@@ -380,7 +353,7 @@ if __name__ == "__main__":
     # Indices are always written in the order : left, right, top, bottom, up, down 
     # For ex, construction of T_ijkq = A_ip * B_pjkl * A_lq is as :
     
- #               | c     
+    #               | c     
     #  -- A -- B -- A -- B -- A -- 
     #     |    |    | k  |    |         
     #     |  a |  p | j  |  b |     goes to 
@@ -393,20 +366,21 @@ if __name__ == "__main__":
     #  -- B -- A -- B -- A -- B -- 
         
     
-    CGS = start_coarse_graining(T)  
-        
-    count = 2 # coarse_graining done twice before this
-    for i in range (0,Nlayers-2):
-        CGS1 = coarse_graining(CGS, D_cut) 
-        count = count+1
-        CGS = CGS1
+    count = 0.0 
+    eps = 0.0 
+    trM = 0.0 
 
-    M = np.einsum("klii->kl", CGS)  # Trace over two indices, periodic bc's
+    for i in range (0,Niters):
+        T, eps, trM, count = coarse_graining(T, eps, trM, count)  
+
+    M = np.einsum("klii->kl", T)  # Trace over two indices, periodic bc's
     print ("Size of M is ", np.shape(M)) 
     print ("Norm of M is", LA.norm(M))
     print ("Trace of M is ", np.einsum("ii", M)) 
+    print ("Truncation error is =", eps)  # Error due to truncation
             
 
 print ("Finished",count,"coarse graining steps keeping ",D_cut,"states")
-print ("COMPLETED : " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+print ("-----------------------------------------------------------------")           
+print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
