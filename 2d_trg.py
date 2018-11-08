@@ -58,15 +58,15 @@ N=2                                      # SU(2)
 g=sqrt(2)
 beta = 2.0*N/(g**2)
 rho = 1                                  # Length of Higgs field
-Niters = 4                             
+Niters = 6                             
 Ns = int(2**((Niters)))  
 Nt = Ns      
 vol = Nt * Ns
 D_cut = 40
 
-# Time ~ 15 sec with D_cut=40 and Niters=6
-# Time ~ 22 sec with D_cut=40 and Niters=8
-# Time ~ 30 sec with D_cut=40 and Niters=10
+# Time ~ 17 sec with D_cut=40 and Niters=6
+# Time ~ 25 sec with D_cut=40 and Niters=8
+# Time ~ 37 sec with D_cut=40 and Niters=10
 
 if D_cut <= N_r**2:
   print("Usage: D_cut must be greater than N_r**2 for now")
@@ -118,20 +118,17 @@ def factorial(N):
 
 
 #####################################
-def contract_reshape(A, B, dim):
-    if dim < 0:
+def contract_reshape(A, B, dout):
+    if dout < 0:
         raise ValueError("Dimension of matrix is negative !!! ")
         return 0
 
-    Adum = A.reshape((dim)*N_r, N_r)
-    Bdum = B.reshape(N_r, N_r*dim)  
-    dummy1 = np.dot(Adum, Bdum) # Alternative : np.einsum("abcd, efdh->aebfch", A, B) # Do dummy1_apcqdr = A_abcd * B_efdh 
+    dum = np.tensordot(A,B,axes=([3,2]))  # Note that 0=left, 1=right, 2=top, 3=bottom 
+    dum = dum.transpose(0,3,1,4,2,5)
+    out = dum.reshape(dout, dout, N_r, N_r)  
 
-    # Another equivalent way : 
-    dummy1 = np.tensordot(A,B,axes=([3,2]))
-    out = dummy1.reshape(dim, dim, N_r, N_r)  
+    return out 
 
-    return out
 #####################################
 
 
@@ -274,7 +271,7 @@ def make_tensorB(rep):
 
 
 ##############################
-def coarse_graining(matrix, eps, trM, count):
+def coarse_graining(matrix, eps, nc, count):
 
     T = matrix  
 
@@ -286,7 +283,11 @@ def coarse_graining(matrix, eps, trM, count):
     M = contract_reshape(T, T, d)   
     M_prime = M.reshape(d, d*(N_r**2))      
     MMdag_prime = np.dot(M_prime, dagger(M_prime))    
-    U, s1, V = LA.svd(MMdag_prime)
+    
+    w, U = LA.eigh(MMdag_prime)   # U, s1, V = LA.svd(MMdag_prime)
+    idx = w.argsort()[::-1]
+    s1 = w[idx]
+    U = U[:,idx]
 
     if np.size(U,1) > D_cut: 
 
@@ -301,10 +302,7 @@ def coarse_graining(matrix, eps, trM, count):
     M_new = np.transpose(M_new, (0,3,1,2))  # UMU_acdb --> UMU_abcd
     norm = LA.norm(M_new)
 
-    if verbose:
-        print ("Norm of T(%.4g) is = " % count, norm)
-    #lnZ += 2 ** (no_iter-1) * np.log (norm)
-    trM += 2 ** (Niters-count) * np.log(norm) 
+    nc += (2**((2*Niters)-count)) * np.log(norm) 
 
     if norm != 0:
         T = M_new/norm 
@@ -313,7 +311,7 @@ def coarse_graining(matrix, eps, trM, count):
       print ("Norm of tensor is = ", norm)  
       sys.exit(1)
 
-    return T, eps, trM, count
+    return T, eps, nc, count
 
 
 ##############################
@@ -345,8 +343,6 @@ if __name__ == "__main__":
     #dum = np.tensordot(dum,A,axes=([0,0])) # BAAA_labc
     #T = np.tensordot(dum,A,axes=([0,0])) # BAAAA_abcd 
 
-    print ("Norm of fund. tensor is T(0) = ", LA.norm(T))
-
     T /= LA.norm(T)  
 
     # T is also sometimes called as "fundamental tensor". 
@@ -368,19 +364,23 @@ if __name__ == "__main__":
     
     count = 0.0 
     eps = 0.0 
-    trM = 0.0 
+    nc = 0.0 
+
+    nc += (2**((2*Niters)-count)) * np.log(norm)
 
     for i in range (0,Niters):
-        T, eps, trM, count = coarse_graining(T, eps, trM, count)  
 
-    M = np.einsum("klii->kl", T)  # Trace over two indices, periodic bc's
-    print ("Size of M is ", np.shape(M)) 
-    print ("Norm of M is", LA.norm(M))
-    print ("Trace of M is ", np.einsum("ii", M)) 
-    print ("Truncation error is =", eps)  # Error due to truncation
+        T, eps, nc, count = coarse_graining(T, eps, nc, count)  
+
+    T = np.einsum("klii->kl", T)    
+    T = T**Nt 
+ 
+    trT = np.einsum("ii", T)
+    lnZ = np.log(trT) + nc    # Accumulated nc over Niters  
             
 
 print ("Finished",count,"coarse graining steps keeping ",D_cut,"states")
+print ("Free energy density =", (-lnZ/vol))  # Matched on November 8 with Judah 
 print ("-----------------------------------------------------------------")           
 print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
