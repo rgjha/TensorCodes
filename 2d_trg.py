@@ -270,6 +270,114 @@ def make_tensorB(rep):
 ##############################
 
 
+
+##############################
+def make_Atilde(rep):
+
+    for r_a in rep:
+        for r_b in rep:
+
+            m_a = []
+            m_b = []
+            R=[]
+            SIGMA=[]
+
+            ALPHA = [-0.5, 0.5]   # Rep chosen for ploop 
+            BETA = [-0.5, 0.5] 
+
+
+            for i in range(abs(r_a-1), abs(r_a+1)+1, 2):
+                dum = int(i)
+                R.append(dum)
+
+            for j in R:
+                for i in range(abs(r_b-j), abs(r_b+j)+1):
+                    dum = int(i) 
+                    SIGMA.append(dum)
+
+
+            if r_a == r_b == 0:
+                
+                m_al = m_ar = m_bl = m_br = 0
+
+                for alpha in ALPHA:
+                    for beta in BETA:
+
+                        k = index(r_a, m_al, m_bl)
+                        l = index(r_b, m_ar, m_br)
+                        al = int(((2*alpha)+1.0)/2.0)  # Ploop index1
+                        be = int(((2*beta)+1.0)/2.0)   # Ploop index2
+                        m = alpha + m_bl 
+                        n = beta + m_al
+
+                        val = 0 
+                                    
+                        for sigma in SIGMA:
+                            for r in R: 
+
+                                CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_br)
+                                CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_ar)
+                                CG *= CGC(r_a/2.0, m_bl, (1/2.0), beta, (r/2.0), (alpha + m_bl))
+                                CG *= CGC(r_a/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al))
+                                val +=  CG / (r_b + 1) 
+
+                        if val !=0:
+                            Atilde[k][l][al][be] = val * Fr(sigma, kappa)
+                            print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])  
+
+                            
+            else:
+
+                if r_a == 0:
+                    m_a.append(0) 
+                else:
+                    for x in [-r_a, r_a]:
+                       m_a.append(x/2.0)  
+
+                if r_b == 0:
+                    m_b.append(0) 
+                    
+                else:
+                    for x in [-r_b, r_b]:
+                       m_b.append(x/2.0) 
+
+
+            for m_al in m_a:
+                for m_ar in m_a:
+
+                    for m_bl in m_b:
+                        for m_br in m_b:
+                            
+                            for alpha in ALPHA:
+                                for beta in BETA:
+
+                                    k = index(r_a, m_al, m_ar)
+                                    l = index(r_b, m_bl, m_br)  
+                                    al = int(((2*alpha)+1.0)/2.0) 
+                                    be = int(((2*beta)+1.0)/2.0)
+                                    m = alpha + m_bl 
+                                    n = beta + m_al
+                        
+                                    val = 0 
+                        
+                                    for sigma in SIGMA:
+                                        for r in R: 
+                                        
+                                            CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_br)
+                                            CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_ar)
+                                            CG *= CGC(r_a/2.0, m_bl, (1/2.0), beta, (r/2.0), (alpha + m_bl))
+                                            CG *= CGC(r_a/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al)) 
+                                            val += CG / (r_b + 1)
+
+                                    if val !=0:
+                                        Atilde[k][l][al][be] += val * Fr(sigma, kappa)
+                                        print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
+ 
+    return Atilde   
+##############################
+
+
+
 ##############################
 def coarse_graining(matrix, eps, nc, count):
 
@@ -322,6 +430,7 @@ if __name__ == "__main__":
  
     A = make_tensorA(representation)  # Link tensor  
     B = make_tensorB(representation)  # Plaquette tensor
+    Atilde = make_Atilde(representation)
 
     # "einsum" is a very useful numpy tool for Einstein's summation convention 
     # Matrix multiplication --> np.einsum('ij,jk->ik', a, b)  # c_ik = a_ij * b_jk
