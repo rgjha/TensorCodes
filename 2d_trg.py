@@ -48,7 +48,7 @@ print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print ("-----------------------------------------------------------------")
 
 representation = [0.0, 1.0]              # By definition : 2r 
-dim = [x+1 for x in representation]      # 2r + 1 
+dim = [x+1 for x in representation]      # 2r + 1
 rep_max = int(max(representation))                 
 N_r = int(sum(np.square(dim))) 
 N_m = int(max(dim))
@@ -174,41 +174,41 @@ def Fr(a, b):
 
 ##############################
 def make_tensorA(rep):
-    for r_a in rep:
-        for r_b in rep:
+    for r_l in rep:
+        for r_r in rep:
 
             m_a = []
             m_b = []
 
-            if r_a + r_b == 2.0 and abs(r_a - r_b) == 0.0:  # r_a = 1, r_b = 1
+            if r_l + r_r == 2.0 and abs(r_l - r_r) == 0.0:  # r_l = 1, r_r = 1
                 temp1 = [0.0, 2.0] 
-            elif r_a == r_b == 0.0:
+            elif r_l == r_r == 0.0:
                 temp1 = [0.0]                                               
             else:
                 temp1 = [1.0]  
 
-            if r_a == r_b == 0:
+            if r_l == r_r == 0:
                 m_al = m_ar = m_bl = m_br = 0
-                k = int(5.0 * (r_a/2.0) + (2*m_al) + m_ar)
-                l = int(5.0 * (r_b/2.0) + (2*m_bl) + m_br)
+                k = int(5.0 * (r_l/2.0) + (2*m_al) + m_ar)
+                l = int(5.0 * (r_r/2.0) + (2*m_bl) + m_br)
 
                 for sigma in temp1: 
-                    CG1 = CGC((r_a/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_b/2.0), m_bl)
-                    CG2 = CGC((r_a/2.0), m_ar, (sigma/2.0), (m_br - m_ar), (r_b/2.0), m_br) 
-                    A[k][l] += Fr((sigma), kappa) * CG1  * CG2 / (r_b + 1) 
+                    CG1 = CGC((r_l/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_bl)
+                    CG2 = CGC((r_l/2.0), m_ar, (sigma/2.0), (m_br - m_ar), (r_r/2.0), m_br) 
+                    A[k][l] += Fr((sigma), kappa) * CG1  * CG2 / (r_r + 1) 
 
             else:
 
-                if r_a == 0:
+                if r_l == 0:
                     m_a.append(0) 
                 else:
-                    for x in [-r_a, r_a]:
+                    for x in [-r_l, r_l]:
                        m_a.append(x/2.0)    
 
-                if r_b == 0:
+                if r_r == 0:
                     m_b.append(0) 
                 else:
-                    for x in [-r_b, r_b]:
+                    for x in [-r_r, r_r]:
                        m_b.append(x/2.0) 
 
             for m_al in m_a:
@@ -217,13 +217,13 @@ def make_tensorA(rep):
                     for m_ar in m_a:
                         for m_br in m_b:
 
-                            k = int(5.0 * (r_a/2.0) + (2*m_al) + m_ar)
-                            l = int(5.0 * (r_b/2.0) + (2*m_bl) + m_br)
+                            k = int(5.0 * (r_l/2.0) + (2*m_al) + m_ar)
+                            l = int(5.0 * (r_r/2.0) + (2*m_bl) + m_br)
 
                             for sigma in temp1:  
-                                CG1 = CGC((r_a/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_b/2.0), m_bl)
-                                CG2 = CGC((r_a/2.0), m_ar, (sigma/2.0), (m_bl - m_al), (r_b/2.0), m_br) 
-                                A[k][l] += Fr((sigma), kappa) *  CG1  *  CG2 / (r_b + 1)
+                                CG1 = CGC((r_l/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_bl)
+                                CG2 = CGC((r_l/2.0), m_ar, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_br) 
+                                A[k][l] += Fr((sigma), kappa) *  CG1  *  CG2 / (r_r + 1)
 
     return A  
 ##############################
@@ -236,7 +236,7 @@ def make_tensorB(rep):
     m_b = []
     count = 0
     for r in rep:
-        r_l = r_r = r_a = r_b = r 
+        r_l = r_r = r_l = r_r = r 
 
         if r == 0:
                 m_al = m_ar = m_bl = m_br = m_la = m_ra = m_rb = m_lb = 0
@@ -274,37 +274,25 @@ def make_tensorB(rep):
 ##############################
 def make_Atilde(rep):
 
-    for r_a in rep:
-        for r_b in rep:
+    for r_l in rep:
+        for r_r in rep:
 
             m_a = []
             m_b = []
-            R=[]
-            SIGMA=[]
 
             ALPHA = [-0.5, 0.5]   # Rep chosen for ploop 
             BETA = [-0.5, 0.5] 
 
 
-            for i in range(abs(r_a-1), abs(r_a+1)+1, 2):
-                dum = int(i)
-                R.append(dum)
-
-            for j in R:
-                for i in range(abs(r_b-j), abs(r_b+j)+1):
-                    dum = int(i) 
-                    SIGMA.append(dum)
-
-
-            if r_a == r_b == 0:
+            if r_l == r_r == 0:
                 
                 m_al = m_ar = m_bl = m_br = 0
 
                 for alpha in ALPHA:
                     for beta in BETA:
 
-                        k = index(r_a, m_al, m_bl)
-                        l = index(r_b, m_ar, m_br)
+                        k = index(r_l, m_al, m_bl)
+                        l = index(r_r, m_ar, m_br)
                         al = int(((2*alpha)+1.0)/2.0)  # Ploop index1
                         be = int(((2*beta)+1.0)/2.0)   # Ploop index2
                         m = alpha + m_bl 
@@ -312,33 +300,33 @@ def make_Atilde(rep):
 
                         val = 0 
                                     
-                        for sigma in SIGMA:
-                            for r in R: 
+                        for r in range(abs(r_l-1), abs(r_l+1)+1):
+                            for sigma in range(abs(r_r-r), abs(r_r+r)+1): 
 
-                                CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_br)
-                                CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_ar)
-                                CG *= CGC(r_a/2.0, m_bl, (1/2.0), beta, (r/2.0), (alpha + m_bl))
-                                CG *= CGC(r_a/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al))
-                                val +=  CG / (r_b + 1) 
+                                CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_br)
+                                CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_ar)
+                                CG *= CGC(r_l/2.0, m_bl, (1/2.0), alpha, (r/2.0), (alpha + m_bl))
+                                CG *= CGC(r_l/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al))
+                                val +=  CG / (r_r + 1) 
 
                         if val !=0:
                             Atilde[k][l][al][be] = val * Fr(sigma, kappa)
-                            print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])  
+                            #print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
 
                             
             else:
 
-                if r_a == 0:
+                if r_l == 0:
                     m_a.append(0) 
                 else:
-                    for x in [-r_a, r_a]:
+                    for x in [-r_l, r_l]:
                        m_a.append(x/2.0)  
 
-                if r_b == 0:
+                if r_r == 0:
                     m_b.append(0) 
                     
                 else:
-                    for x in [-r_b, r_b]:
+                    for x in [-r_r, r_r]:
                        m_b.append(x/2.0) 
 
 
@@ -351,8 +339,8 @@ def make_Atilde(rep):
                             for alpha in ALPHA:
                                 for beta in BETA:
 
-                                    k = index(r_a, m_al, m_ar)
-                                    l = index(r_b, m_bl, m_br)  
+                                    k = index(r_l, m_al, m_ar)
+                                    l = index(r_r, m_bl, m_br)  
                                     al = int(((2*alpha)+1.0)/2.0) 
                                     be = int(((2*beta)+1.0)/2.0)
                                     m = alpha + m_bl 
@@ -360,18 +348,18 @@ def make_Atilde(rep):
                         
                                     val = 0 
                         
-                                    for sigma in SIGMA:
-                                        for r in R: 
+                                    for r in range(abs(r_l-1), abs(r_l+1)+1):
+                                        for sigma in range(abs(r_r-r), abs(r_r+r)+1): 
                                         
-                                            CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_br)
-                                            CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_b/2.0, m_ar)
-                                            CG *= CGC(r_a/2.0, m_bl, (1/2.0), beta, (r/2.0), (alpha + m_bl))
-                                            CG *= CGC(r_a/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al)) 
-                                            val += CG / (r_b + 1)
+                                            CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_br)
+                                            CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_ar)
+                                            CG *= CGC(r_l/2.0, m_bl, (1/2.0), alpha, (r/2.0), (alpha + m_bl))
+                                            CG *= CGC(r_l/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al)) 
+                                            val += CG / (r_r + 1)
 
                                     if val !=0:
                                         Atilde[k][l][al][be] += val * Fr(sigma, kappa)
-                                        print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
+                                        #print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
  
     return Atilde   
 ##############################
@@ -430,7 +418,7 @@ if __name__ == "__main__":
  
     A = make_tensorA(representation)  # Link tensor  
     B = make_tensorB(representation)  # Plaquette tensor
-    Atilde = make_Atilde(representation)
+    Atilde = make_Atilde(representation) # Impure tensor for Polyakov loop
 
     # "einsum" is a very useful numpy tool for Einstein's summation convention 
     # Matrix multiplication --> np.einsum('ij,jk->ik', a, b)  # c_ik = a_ij * b_jk
@@ -479,17 +467,31 @@ if __name__ == "__main__":
 
     for i in range (0,Niters):
 
-        T, eps, nc, count = coarse_graining(T, eps, nc, count)  
+        T, eps, nc, count = coarse_graining(T, eps, nc, count) 
 
-    T = np.einsum("klii->kl", T)    
-    T = T**Nt 
+        if count == Niters:
+            Atwidle = Aprime.T
+            PL = np.einsum("pjkl, ka, lb -> pjab", T, Linverse, Linverse)
+            PL = np.einsum("pjab, lmbq -> pljmaq", PL, Atwidle)
+            PL = np.einsum("pljmaa -> pjlm", PL)
+
+            for i in range (0, Nt):
+                A = np.einsum("pljm, lamb -> pjab", PL, PL)
+
+            PL = A.reshape(D_cut*2,D_cut*2) 
+            PL = np.einsum("ii", PL)
+            PL = (Ploop/2)**(1/Nt)       # Yet to check!
+
+    T = np.einsum("klii->kl", T)      # Trace over!
+    T = T**Nt                         # Raise over time slices
  
     trT = np.einsum("ii", T)
-    lnZ = np.log(trT) + nc    # Accumulated nc over Niters  
+    lnZ = np.log(trT) + nc            # Accumulated factors over Niters, note that usually np.log(trT) <<< nc
             
 
 print ("Finished",count,"coarse graining steps keeping ",D_cut,"states")
 print ("Free energy density =", (-lnZ/vol))  # Matched on November 8 with Judah 
+print ("Polyakov line =", PL)
 print ("-----------------------------------------------------------------")           
 print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
