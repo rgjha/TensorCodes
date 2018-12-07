@@ -277,8 +277,8 @@ def make_Atilde(rep):
     for r_l in rep:
         for r_r in rep:
 
-            m_a = []
-            m_b = []
+            m_l = []
+            m_r = []
 
             ALPHA = [-0.5, 0.5]   # Rep chosen for ploop 
             BETA = [-0.5, 0.5] 
@@ -286,81 +286,77 @@ def make_Atilde(rep):
 
             if r_l == r_r == 0:
                 
-                m_al = m_ar = m_bl = m_br = 0
+                m_la = m_ra = m_lb = m_rb = 0
 
                 for alpha in ALPHA:
                     for beta in BETA:
 
-                        k = index(r_l, m_al, m_bl)
-                        l = index(r_r, m_ar, m_br)
+                        k = index(r_l, m_la, m_lb)
+                        l = index(r_r, m_ra, m_rb)
                         al = int(((2*alpha)+1.0)/2.0)  # Ploop index1
                         be = int(((2*beta)+1.0)/2.0)   # Ploop index2
-                        m = alpha + m_bl 
-                        n = beta + m_al
+                        m = alpha + m_lb 
+                        n = beta + m_la
 
                         val = 0 
                                     
                         for r in range(abs(r_l-1), abs(r_l+1)+1):
                             for sigma in range(abs(r_r-r), abs(r_r+r)+1): 
 
-                                CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_br)
-                                CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_ar)
-                                CG *= CGC(r_l/2.0, m_bl, (1/2.0), alpha, (r/2.0), (alpha + m_bl))
-                                CG *= CGC(r_l/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al))
-                                val +=  CG / (r_r + 1) 
+                                CG  = CGC(r/2.0, alpha+m_lb, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_rb)
+                                CG *= CGC(r/2.0, beta+m_la, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_ra)
+                                CG *= CGC(r_l/2.0, m_lb, (1/2.0), alpha, (r/2.0), (alpha + m_lb))
+                                CG *= CGC(r_l/2.0, m_la, (1/2.0), beta, (r/2.0), (beta + m_la)) 
+                                val += Fr(sigma, kappa) * CG / (r_r + 1) 
 
                         if val !=0:
-                            Atilde[k][l][al][be] = val * Fr(sigma, kappa)
-                            #print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
+                            Atilde[k][l][al][be] = val    
+                            #print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])  
+                            print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
 
                             
             else:
 
                 if r_l == 0:
-                    m_a.append(0) 
+                    m_l.append(0) 
                 else:
                     for x in [-r_l, r_l]:
-                       m_a.append(x/2.0)  
+                       m_l.append(x/2.0)  
 
                 if r_r == 0:
-                    m_b.append(0) 
+                    m_r.append(0) 
                     
                 else:
                     for x in [-r_r, r_r]:
-                       m_b.append(x/2.0) 
+                       m_r.append(x/2.0) 
 
 
-            for m_al in m_a:
-                for m_ar in m_a:
+                for m_la in m_l:
+                    for m_lb in m_l:
+                        for m_ra in m_r:              
+                            for m_rb in m_r:
+                                for alpha in ALPHA:
+                                    for beta in BETA:
 
-                    for m_bl in m_b:
-                        for m_br in m_b:
-                            
-                            for alpha in ALPHA:
-                                for beta in BETA:
-
-                                    k = index(r_l, m_al, m_ar)
-                                    l = index(r_r, m_bl, m_br)  
-                                    al = int(((2*alpha)+1.0)/2.0) 
-                                    be = int(((2*beta)+1.0)/2.0)
-                                    m = alpha + m_bl 
-                                    n = beta + m_al
+                                        k = index(r_l, m_la, m_lb)
+                                        l = index(r_r, m_ra, m_rb)  
+                                        al = int(((2*alpha)+1.0)/2.0) 
+                                        be = int(((2*beta)+1.0)/2.0) 
                         
-                                    val = 0 
+                                        val = 0 
                         
-                                    for r in range(abs(r_l-1), abs(r_l+1)+1):
-                                        for sigma in range(abs(r_r-r), abs(r_r+r)+1): 
+                                        for r in range(abs(r_l-1), abs(r_l+1)+1, 2):
+                                            for sigma in range(abs(r_r-r), abs(r_r+r)+1, 2): 
                                         
-                                            CG  = CGC(r/2.0, alpha+m_bl, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_br)
-                                            CG *= CGC(r/2.0, beta+m_al, sigma/2.0, m_ar - (beta+m_al), r_r/2.0, m_ar)
-                                            CG *= CGC(r_l/2.0, m_bl, (1/2.0), alpha, (r/2.0), (alpha + m_bl))
-                                            CG *= CGC(r_l/2.0, m_al, (1/2.0), beta, (r/2.0), (beta + m_al)) 
-                                            val += CG / (r_r + 1)
+                                            CG  = CGC(r/2.0, alpha+m_lb, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_rb)
+                                            CG *= CGC(r/2.0, beta+m_la, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_ra)
+                                            CG *= CGC(r_l/2.0, m_lb, (1/2.0), alpha, (r/2.0), (alpha + m_lb))
+                                            CG *= CGC(r_l/2.0, m_la, (1/2.0), beta, (r/2.0), (beta + m_la))
+                                            val += Fr(sigma, kappa) * CG / (r_r + 1)  
 
-                                    if val !=0:
-                                        Atilde[k][l][al][be] += val * Fr(sigma, kappa)
-                                        #print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
- 
+                                        Atilde[k][l][al][be] = val 
+                                        if val != 0:
+                                            print ("A[%1g]"%k, "[%1g]" %l, "[%1g]" %al, "[%1g]" %be , "=" " %1g" % Atilde[k][l][al][be])
     return Atilde   
 ##############################
 
