@@ -145,7 +145,7 @@ def CGC(j1, m1, j2, m2, j, m):
 
         dum = 0
         lim = int(math.floor(abs(j + m + 1)))
-        for k in range(0, lim+1):
+        for k in range(0, lim+2):
 
             if (j1 + j2 >= j+k) and (j1 >= m1+k) and (j2 + m2 >= k) and (j + m1 + k >= j2) and (j + k >= j1 + m2):
                 dum += ((-1)**(k))/(factorial(k) \
@@ -167,6 +167,10 @@ def Fr(a, b):
     if b <= 0 or a < 0:
         raise ValueError("Negative arguments!!! ")
         return 0
+    elif b==0 and a==1:
+        return 0
+    elif b==0 and a==0:
+        return 2.0 * (a+1.0) * 0.50   # lim besselj[1,x]/x as x->0 = 0.5
     else:
         return 2.0 * (a+1.0) * (sp.special.iv((a+1.0), b)/(b)) 
 ##############################
@@ -348,11 +352,11 @@ def make_Atilde(rep):
                                         for r in range(abs(r_l-1), abs(r_l+1)+1, 2):
                                             for sigma in range(abs(r_r-r), abs(r_r+r)+1, 2): 
                                         
-                                            CG  = CGC(r/2.0, alpha+m_lb, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_rb)
-                                            CG *= CGC(r/2.0, beta+m_la, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_ra)
-                                            CG *= CGC(r_l/2.0, m_lb, (1/2.0), alpha, (r/2.0), (alpha + m_lb))
-                                            CG *= CGC(r_l/2.0, m_la, (1/2.0), beta, (r/2.0), (beta + m_la))
-                                            val += Fr(sigma, kappa) * CG / (r_r + 1)  
+                                                CG  = CGC(r/2.0, alpha+m_lb, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_rb)
+                                                CG *= CGC(r/2.0, beta+m_la, sigma/2.0, m_ra - (beta+m_la), r_r/2.0, m_ra)
+                                                CG *= CGC(r_l/2.0, m_lb, (1/2.0), alpha, (r/2.0), (alpha + m_lb))
+                                                CG *= CGC(r_l/2.0, m_la, (1/2.0), beta, (r/2.0), (beta + m_la))
+                                                val += Fr(sigma, kappa) * CG / (r_r + 1)  
 
                                         Atilde[k][l][al][be] = val 
                                         if val != 0:
