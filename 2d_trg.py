@@ -47,22 +47,23 @@ startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 print ("-----------------------------------------------------------------")
 
-representation = [0.0, 1.0]              # By definition : 2r 
+representation = [0, 1]              # By definition : 2r 
 dim = [x+1 for x in representation]      # 2r + 1
 rep_max = int(max(representation))                 
 N_r = int(sum(np.square(dim))) 
 N_m = int(max(dim))
 
-kappa=0.10                               # Coupling 
+kappa=2.0                                # Coupling 
 N=2                                      # SU(2) 
 g=sqrt(2)
-beta = 2.0*N/(g**2)
+#beta = 2.0*N/(g**2)
+beta=0.0
 rho = 1                                  # Length of Higgs field
-Niters = 6                             
+Niters = 3                             
 Ns = int(2**((Niters)))  
 Nt = Ns      
 vol = Nt * Ns
-D_cut = 40
+D_cut = 32
 
 # Time ~ 17 sec with D_cut=40 and Niters=6
 # Time ~ 25 sec with D_cut=40 and Niters=8
@@ -76,7 +77,8 @@ if D_cut <= N_r**2:
 verbose = int(sys.argv[1]) 
 
 
-A = np.zeros([N_r, N_r])                
+A = np.zeros([N_r, N_r])    
+Atilde = np.zeros([N_r, N_r, 2, 2])             
 B = np.zeros([N_r, N_r, N_r, N_r])
 
 np.set_printoptions(precision=8)
@@ -164,8 +166,8 @@ def CGC(j1, m1, j2, m2, j, m):
 
 ##############################
 def Fr(a, b):
-    if b <= 0 or a < 0:
-        raise ValueError("Negative arguments!!! ")
+    if b < 0 or a < 0:
+        raise ValueError(" a or b is negative !!! ")
         return 0
     elif b==0 and a==1:
         return 0
@@ -387,7 +389,8 @@ if __name__ == "__main__":
     #dum = np.tensordot(dum,A,axes=([0,0])) # BAAA_labc
     #T = np.tensordot(dum,A,axes=([0,0])) # BAAAA_abcd 
 
-    T /= LA.norm(T)  
+    norm = LA.norm(T)
+    T /= norm   
 
     # T is also sometimes called as "fundamental tensor". 
     # Indices are always written in the order : left, right, top, bottom, up, down 
@@ -436,11 +439,11 @@ if __name__ == "__main__":
 
     trT = np.einsum("ii", T)
     PL = np.einsum("ii", PL)/trT
-    PL = (Ploop/2.0)**(1/Nt)
+    PL = (PL/2.0)**(1/Nt)
     lnZ = np.log(trT) + nc            # Accumulated factors over Niters, note that usually np.log(trT) <<< nc
             
 
-print ("Finished",count,"coarse graining steps keeping ",D_cut,"states")
+print ("Finished",count,"coarse graining steps keeping",D_cut,"states " "with kappa =", kappa, "and beta", beta) 
 print ("Free energy density =", (-lnZ/vol))  # Matched on November 8 with Judah 
 print ("Polyakov line =", PL)  # Matched on December 11 
 print ("-----------------------------------------------------------------")           
