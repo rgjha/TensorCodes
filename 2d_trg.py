@@ -364,7 +364,7 @@ if __name__ == "__main__":
  
     A = make_tensorA(representation)  # Link tensor  
     B = make_tensorB(representation)  # Plaquette tensor
-    Atilde = make_Atilde(representation) # Impure tensor for Polyakov loop
+    Aprime = make_Atilde(representation) # Impure tensor for Polyakov loop
 
     # "einsum" is a very useful numpy tool for Einstein's summation convention 
     # Matrix multiplication --> np.einsum('ij,jk->ik', a, b)  # c_ik = a_ij * b_jk
@@ -377,6 +377,7 @@ if __name__ == "__main__":
     # But "einsum" is slow. We can use sequence of reshape, np.dot to contract 
 
     L = LA.cholesky(A) 
+    Linverse = LA.inv(L)
     T = np.einsum("pjkl, pa, jb, kc, ld", B, L, L, L, L)
 
     # Unaware if tensor.dot can take > 2 tensors to contract ! TODO
@@ -406,38 +407,42 @@ if __name__ == "__main__":
         
     
     count = 0.0 
-    eps = 0.0 
-    nc = 0.0 
+    eps = 0.0  
 
-    nc += (2**((2*Niters)-count)) * np.log(norm)
+    nc = (2**((2*Niters)-count)) * np.log(norm)  # First normalization
 
     for i in range (0,Niters):
 
         T, eps, nc, count = coarse_graining(T, eps, nc, count) 
 
-        if count == Niters:
-            Atwidle = Aprime.T
-            PL = np.einsum("pjkl, ka, lb -> pjab", T, Linverse, Linverse)
-            PL = np.einsum("pjab, lmbq -> pljmaq", PL, Atwidle)
-            PL = np.einsum("pljmaa -> pjlm", PL)
 
-            for i in range (0, Nt):
-                A = np.einsum("pljm, lamb -> pjab", PL, PL)
+    T = T.transpose(2,3,1,0)   
 
-            PL = A.reshape(D_cut*2,D_cut*2) 
-            PL = np.einsum("ii", PL)
-            PL = (Ploop/2)**(1/Nt)       # Yet to check!
+    dum = np.einsum("abcd,be->aecd", T, Linverse) 
+    dum1 = np.einsum("if, ijkl->fjkl", Linverse, T)
+    PL = np.einsum("aecd, efgh, fjkl->ajcgkdhl", dum, Aprime, dum1)    
+    PL = np.einsum("iicgkdhl->cgkdhl", PL) 
+    PL = PL.reshape(D_cut*D_cut*2,D_cut*D_cut*2) 
+    T = np.einsum("iikl->kl", T)
 
-    T = np.einsum("klii->kl", T)      # Trace over!
-    T = T**Nt                         # Raise over time slices
- 
+
+    for i in range (0, Niters):
+
+        PL = np.dot(PL, PL)
+        T = np.dot(T, T)
+        PL /= np.trace(T)
+        T /= np.trace(T)
+
+
     trT = np.einsum("ii", T)
+    PL = np.einsum("ii", PL)/trT
+    PL = (Ploop/2.0)**(1/Nt)
     lnZ = np.log(trT) + nc            # Accumulated factors over Niters, note that usually np.log(trT) <<< nc
             
 
 print ("Finished",count,"coarse graining steps keeping ",D_cut,"states")
 print ("Free energy density =", (-lnZ/vol))  # Matched on November 8 with Judah 
-print ("Polyakov line =", PL)
+print ("Polyakov line =", PL)  # Matched on December 11 
 print ("-----------------------------------------------------------------")           
 print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
