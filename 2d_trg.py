@@ -1,9 +1,12 @@
-# Tensor formulation of 2d model
+# Tensor formulation of 2d non-Abelian gauge-Higgs model
 # Started : October 1, 2018 
+
+# This code can create the same fundamental tensor "T" as that 
+# in our paper: https://arxiv.org/abs/1901.11443
 
 # This code uses modified version of the tensor renormalization 
 # group (TRG) based on the method presented in 1201.1144 which uses HOSVD 
-# higher order SVD (singular value decomposition). 
+# higher order SVD (singular value decomposition) and is known as HOTRG. 
 
 # For 'exact' and more details refer to initial commits. 
 
@@ -25,7 +28,27 @@
 # Another good reference is 1510.03333 with some details 
 
 # https://arxiv.org/abs/1801.04183 discusses the tensor network 
-# formulation for two-dimensional lattice N=1 Wess-Zumino model 
+# formulation for two-dimensional lattice N=1 Wess-Zumino model
+
+# An alternate tensor contraction routine "ncon" is also included since 
+# it is useful sometimes. Please cite https://arxiv.org/abs/1402.0939
+# if you use this in your work. 
+
+# Simple example for ncon is:
+# C = ncon((A, B),([-1,11,1], [-2,11,1])) means C_ip = A_ijk * B_pjk
+# Same postive integers means the index to be contracted, the order [-1,-2,...]
+# stands for the ordering of the indices in the resulting tensor
+
+# Full list of most popular algorithms are: 
+
+#1) TRG or sometimes also called LN-TNR (Levin Nave): https://arxiv.org/abs/cond-mat/0611687 
+#2) TNR (Tensor Network Renormalization): https://arxiv.org/abs/1412.0732
+#3) Loop TNR: https://arxiv.org/abs/1512.04938.  
+#4) TNS (Tensor Network Skeletonization): https://arxiv.org/abs/1607.00050
+#5) TNR+ : https://arxiv.org/abs/1703.00365
+#6) IDR: https://arxiv.org/abs/1707.05770
+#7) Gilt TNR (graph independent local truncation TNR): https://arxiv.org/abs/1709.07460  
+
 
 import sys
 import math
@@ -37,6 +60,7 @@ from numpy import linalg as LA
 from numpy import ndarray
 import time 
 import datetime 
+from ncon import ncon
 
 if len(sys.argv) < 2:
   print("Usage:", str(sys.argv[0]), "<Verbose or not>")
@@ -395,20 +419,7 @@ if __name__ == "__main__":
     # T is also sometimes called as "fundamental tensor". 
     # Indices are always written in the order : left, right, top, bottom, up, down 
     # For ex, construction of T_ijkq = A_ip * B_pjkl * A_lq is as :
-    
-    #               | c     
-    #  -- A -- B -- A -- B -- A -- 
-    #     |    |    | k  |    |         
-    #     |  a |  p | j  |  b |     goes to 
-    #  -- B -- A -- B -- A -- B--    --->    T_abcd 
-    #     |    |    |    |    |         
-    #     |    |    |l   |    |          
-    #  -- A -- B -- A -- B -- A --
-    #     |    |    |d   |    |  
-    #     |    |    |    |    |
-    #  -- B -- A -- B -- A -- B -- 
         
-    
     count = 0.0 
     eps = 0.0  
 
@@ -444,8 +455,8 @@ if __name__ == "__main__":
             
 
 print ("Finished",count,"coarse graining steps keeping",D_cut,"states " "with kappa =", kappa, "and beta", beta) 
-print ("Free energy density =", (-lnZ/vol))  # Matched on November 8 with Judah 
-print ("Polyakov line =", PL)  # Matched on December 11 
+print ("Free energy density =", (-lnZ/vol)) 
+print ("Polyakov line =", PL)
 print ("-----------------------------------------------------------------")           
 print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
