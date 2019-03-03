@@ -22,23 +22,30 @@ startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 print ("-----------------------------------------------------------------")
 
-representation = [0, 1]                    
+rmax = 1   
+
+# rmax=1 means that we consider only trivial & fundamental reps.
+# rmax=2 means we consider adjoint rep. also. 
+# The requirement is determined by the gauge theory one wants to study
+# and the coupling regime. 
+
+# My guess for now is that for theories which flow, for ex: QCD
+# the lower representation can capture Physics under RG flow. 
+# However, when 'walking' or conformal, all the higher reps. 
+# have to be injected to start with. 
+
+representation = [x for x in range (0, int(2.0*rmax)+1, 1)]  
 dim = [x+1 for x in representation]   
 rep_max = int(max(representation))                 
 N_r = int(sum(np.square(dim))) 
 N_m = int(max(dim))                              
-Niters = 3
+Niters = 5
+Niters_time = 5 
 Ns = int(2**((Niters)))
-Nt = Ns                                  # Number of time-slices
-vol = Ns**2
-D_cut = 39
+Nt = int(2**((Niters_time))) 
+vol = Ns*Nt
+D_cut = 23
 beta = 0.01*vol 
-
-#n = 2                 
-
-if D_cut <= N_r**2:
-  print("Usage: D_cut must be greater than N_r**2 for now")
-  sys.exit(1)
 
 
 verbose = int(sys.argv[1]) 
@@ -156,14 +163,15 @@ def make_tensorA(rep):
             if r_l == 0:
                 m_a.append(0) 
             else:
-                for x in [-r_l, r_l]:
-                    m_a.append(x/2.0)    
+                for x in range(-r_l, r_l+1, 2):
+                    m_a.append(x/2.0)     
 
             if r_r == 0:
                 m_b.append(0) 
             else:
-                for x in [-r_r, r_r]:
+                for x in range(-r_r, r_r+1, 2):
                     m_b.append(x/2.0) 
+
 
             for m_al in m_a:
                 for m_ar in m_a:
@@ -225,19 +233,21 @@ def coarse_graining(matrix, eps, nc, count):
 
     T = matrix  
 
-    if count >= 2:
+    if count >=1: 
         d = int(D_cut**2)
     else:
-        d = int(N_r**(2*(count+1)))
+        d = int(N_r**(2*(count+1)))   # !! TODO
 
-    M = contract_reshape(T, T, d)   
-    M_prime = M.reshape(d, d*(N_r**2))     
+    M = contract_reshape(T, T, d)  
+     
+    M_prime = M.reshape(d, d*(N_r**2))    
     MMdag_prime = np.dot(M_prime, dagger(M_prime))  
 
     w, U = LA.eigh(MMdag_prime)   # Slow alternative : U, s1, V = LA.svd(MMdag_prime)
     idx = w.argsort()[::-1]
     s1 = w[idx]
     U = U[:,idx] 
+
 
     if np.size(U,1) > D_cut: 
 
@@ -266,6 +276,8 @@ def coarse_graining(matrix, eps, nc, count):
 
     else: 
       T = M_new
+
+    
     
     return T, eps, nc, count  
 
@@ -316,7 +328,7 @@ if __name__ == "__main__":
     Tnew = Tnew.reshape(D_cut**2, D_cut**2)
 
 
-    for i in range (0, Niters):
+    for i in range (0, Niters_time):
 
         Tnew = np.matmul(Tnew,Tnew)              # 0. Raise over the time slices
         Tnew /= np.trace(Tnew)
@@ -332,6 +344,7 @@ if __name__ == "__main__":
 
     if verbose:
         print ("Finished",count,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "and beta", beta) 
+        print ("-----------------------------------------------------------------")          
+        print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-print ("-----------------------------------------------------------------")          
-print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
