@@ -44,7 +44,7 @@ Niters_time = 5
 Ns = int(2**((Niters)))
 Nt = int(2**((Niters_time))) 
 vol = Ns*Nt
-D_cut = 23
+D_cut = 29
 beta = 0.01*vol 
 
 
@@ -232,11 +232,7 @@ def make_tensorB(rep):
 def coarse_graining(matrix, eps, nc, count):
 
     T = matrix  
-
-    if count >=1: 
-        d = int(D_cut**2)
-    else:
-        d = int(N_r**(2*(count+1)))   # !! TODO
+    d = int(min(D_cut**2, N_r**(2*(count+1))))
 
     M = contract_reshape(T, T, d)  
      
@@ -260,9 +256,6 @@ def coarse_graining(matrix, eps, nc, count):
         s = s1
         eps = 1.0 - (sum(s)/sum(s1))
 
-        
-
-    count += 1 
 
     M_new = ncon((U, M),([1,-1], [1,-2,-3,-4])) 
     M_new = ncon((M_new, U),([-1,1,-3,-4], [1,-2]))  # With Dbond=41, this combination took 54 sec
@@ -277,8 +270,8 @@ def coarse_graining(matrix, eps, nc, count):
     else: 
       T = M_new
 
-    
-    
+    count += 1 
+
     return T, eps, nc, count  
 
 
