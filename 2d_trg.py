@@ -1,4 +1,4 @@
-# Tensor formulation of 2d non-Abelian gauge-Higgs model
+# Tensor formulation of 2d non-Abelian gauge-Higgs (NAGH) model
 # Started : October 1, 2018 
 
 # This code can create the same fundamental tensor "T" as that 
@@ -62,8 +62,8 @@ import time
 import datetime 
 from ncon import ncon
 
-if len(sys.argv) < 2:
-  print("Usage:", str(sys.argv[0]), "<Verbose or not>")
+if len(sys.argv) < 3:
+  print("Usage:", str(sys.argv[0]), "<Verbose or not>  <kappa> ")
   sys.exit(1)
 
 
@@ -71,18 +71,17 @@ startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 print ("-----------------------------------------------------------------")
 
-representation = [0, 1]              # By definition : 2r 
-dim = [x+1 for x in representation]      # 2r + 1
-rep_max = int(max(representation))                 
-N_r = int(sum(np.square(dim))) 
-N_m = int(max(dim))
+ 
+rmax = 0.5             # Maximum rep. to consider
 
-kappa=2.0                                # Coupling 
-N=2                                      # SU(2) 
+representation = [x for x in range (0, int(2.0*rmax)+1, 1)] 
+dim = [x+1 for x in representation]      # 2r + 1                 
+N_r = int(sum(np.square(dim))) 
+N_m = int(max(dim))                               
+N=2                                    
 g=sqrt(2)
 #beta = 2.0*N/(g**2)
 beta=0.0
-rho = 1                                  # Length of Higgs field
 Niters = 3                             
 Ns = int(2**((Niters)))  
 Nt = Ns      
@@ -99,6 +98,7 @@ if D_cut <= N_r**2:
 
 
 verbose = int(sys.argv[1]) 
+kappa = float(sys.argv[2])    # Coupling 
 
 
 A = np.zeros([N_r, N_r])    
@@ -343,10 +343,7 @@ def coarse_graining(matrix, eps, nc, count):
 
     T = matrix  
 
-    if count >= 2:
-        d = int(D_cut**2)
-    else:
-        d = int(N_r**(2*(count+1)))
+    d = int(min(D_cut**2, N_r**(2*(count+1))))
 
     M = contract_reshape(T, T, d)   
     M_prime = M.reshape(d, d*(N_r**2))      
