@@ -24,17 +24,17 @@ if len(sys.argv) < 4:
   sys.exit(1)
 
 
-Temp =  float(sys.argv[2])
-h =  float(sys.argv[3])
-flag = int(sys.argv[4])
+Temp =  float(sys.argv[1])
+h =  float(sys.argv[2])
+flag = int(sys.argv[3])
 beta = float(1.0/Temp)
 
 # Usual method: # D=22 is 19sec, D=27 is 262 seconds 
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=40
-D_cut=40
+D=30
+D_cut=30
 Niters=8
 Ns = int(2**((Niters)))
 Nt = Ns  
@@ -140,8 +140,10 @@ if __name__ == "__main__":
             for u in range (0,D):
                 for d in range (0,D):
 
-                    if l+u != r+d:
-                        T[l][r][u][d] = 0.0 
+                    index = l+u-r-d
+                    
+                    if index != 0:
+                        T[l][r][u][d] = 0.0  
 
     norm = LA.norm(T)
     T /= norm 
@@ -165,11 +167,10 @@ if __name__ == "__main__":
 
 
         trT = np.einsum("ii", T)
-        trT = trT * np.sqrt(vol)
+        #trT = trT * np.sqrt(vol)
         lnZ = np.log(trT) + nc  
 
-        #print ("Free energy using HOTRG is", -lnZ/(vol*beta))
-        print (Temp, -lnZ/(vol*beta))
+        print ("Temperature is", Temp, " and free energy using HOTRG is", -lnZ/(vol*beta))
 
 
 
@@ -195,7 +196,6 @@ if __name__ == "__main__":
             FreeEnergy[k-1] = -1.0*(sum((4**np.int64(np.array(range(k,-1,-1))))*np.log(ATNRnorm[:(k+1)]))+ \
             np.log(ncon([ATNR[k],Hgauge,Vgauge],[[1,3,2,4],[1,2],[3,4]])))/Volume[k] 
 
-        #print ("Free energy using TNR is ", FreeEnergy[numlevels-1])
-        print (Temp, FreeEnergy[numlevels-1]/(beta*1.0))
+        print ("Temperature is", Temp, "and free energy using TNR is", FreeEnergy[numlevels-1])
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
