@@ -40,14 +40,19 @@ vol = Ns**2
 numlevels = Niters # number of coarse-grainings
 
 
+if D%2 == 0:
+    print ("D must be odd for now")
+    sys.exit(1) 
+
+
 Dn = int(D/2.0)
 
 ##### Set bond dimensions and options
-chiM = 17
-chiS = 17
-chiU = 17
-chiH = 17      
-chiV = 17
+chiM = 22
+chiS = 22
+chiU = 22
+chiH = 22      
+chiV = 22
 #Increasing these makes it more accurate!        
 
 
@@ -86,10 +91,15 @@ def coarse_graining(matrix, eps, nc, count):
     d = D**2
 
     print ("Iteration", int(count+1), "of" , numlevels) 
-    Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4]))
-    Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2]))
-    MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2]))
+    Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4])) # * 
+    Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2])) # * 
+    MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2])) # * 
     MMdag_prime = MMdag_prime.reshape(D**2, D**2)    
+
+    # MMdag_prime = ncon((T,T,T,T),([-1,1,2,3], [-3,1,2,4], [-2,5,3,6], [-4,5,4,6]))
+    # Above line is equivalent to three * marked lines. 
+    # But at least 13 times slower! 
+
     w, U = LA.eigh(MMdag_prime)
     idx = w.argsort()[::-1]
     s1 = w[idx]
@@ -124,8 +134,6 @@ if __name__ == "__main__":
 
     for i in range (-Dn,Dn+1):
 
-        #print ("i is", i)
-        #print ("i+Dn is", i+Dn)
         L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
  
     T = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
@@ -186,6 +194,8 @@ if __name__ == "__main__":
             print ("Iteration", int(k+1), "of" , numlevels)
             ATNR[k+1], qC[k], sC[k], uC[k], yC[k], vC[k], wC[k], ATNRnorm[k+1], SPerrs[k,:] = \
             doTNR(ATNR[k],[chiM,chiS,chiU,chiH,chiV], 1e-8, 1000, 100, True, 0.1)
+            #print('RGstep: %d, Truncation Errors: %e, %e, %e, %e' % \
+            #    (k+1,SPerrs[k,0],SPerrs[k,1],SPerrs[k,2],SPerrs[k,3]))
 
 
             ''' 
@@ -198,7 +208,7 @@ if __name__ == "__main__":
             '''
 
 
-        Volume = 2**(2*np.int64(np.array(range(1,18)))-2)   # 4^n, where n runs from 0 ... max 
+        #Volume = 2**(2*np.int64(np.array(range(1,18)))-2)   # 4^n, where n runs from 0 ... max 
         FreeEnergy = np.zeros(numlevels);
         
         for k in range(1,numlevels+1): 

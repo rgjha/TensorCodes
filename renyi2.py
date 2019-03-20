@@ -20,9 +20,8 @@ if len(sys.argv) < 4:
 
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
-print ("-----------------------------------------------------------------")
 
-rmax = 1   
+rmax = 0.5   
 
 # rmax=1 means that we consider only trivial & fundamental reps.
 # rmax=2 means we consider adjoint rep. also. 
@@ -39,13 +38,15 @@ dim = [x+1 for x in representation]
 rep_max = int(max(representation))                 
 N_r = int(sum(np.square(dim))) 
 N_m = int(max(dim))                              
-Niters = 5
-Niters_time = 5 
+Niters = 6
+Niters_time = Niters 
+Niters_time = 6
+c=0.01 
 Ns = int(2**((Niters)))
 Nt = int(2**((Niters_time))) 
 vol = Ns*Nt
-D_cut = 29
-beta = 0.01*vol 
+D_cut = 40
+beta=c*vol 
 
 
 verbose = int(sys.argv[1]) 
@@ -146,6 +147,8 @@ def Fr(a, b):
         return 0
     elif b==0 and a==0:
         return 2.0 * (a+1.0) * 0.50   # lim besselj[1,x]/x as x->0 = 0.5
+    elif b==0 and a==2:
+        return 0   # lim besselj[2,x]/x as x->0 = 0
     else:
         return 2.0 * (a+1.0) * sp.special.iv((a+1.0), b)/b 
 ##############################
@@ -184,6 +187,7 @@ def make_tensorA(rep):
                             for sigma in range(abs(r_l-r_r), abs(r_l+r_r)+1, 2): 
                                 CG1 = CGC((r_l/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_bl)
                                 CG2 = CGC((r_l/2.0), m_ar, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_br) 
+                                #print ("SIGMA AND KAPPA", sigma, kappa)
                                 A[k][l] += Fr((sigma), kappa) *  CG1  *  CG2 / (r_r + 1)
     return A  
 ##############################
@@ -234,10 +238,12 @@ def coarse_graining(matrix, eps, nc, count):
     T = matrix  
     d = int(min(D_cut**2, N_r**(2*(count+1))))
 
-    M = contract_reshape(T, T, d)  
-     
-    M_prime = M.reshape(d, d*(N_r**2))    
-    MMdag_prime = np.dot(M_prime, dagger(M_prime))  
+    print ("Iteration", int(count+1), "of" , Niters) 
+    Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4]))       
+    Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2]))      
+    MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2])) 
+    MMdag_prime = MMdag_prime.reshape(d, d)  
+
 
     w, U = LA.eigh(MMdag_prime)   # Slow alternative : U, s1, V = LA.svd(MMdag_prime)
     idx = w.argsort()[::-1]
@@ -249,22 +255,14 @@ def coarse_graining(matrix, eps, nc, count):
 
         s = s1[:D_cut] 
         U = U[:,:D_cut]  
-        eps += 1.0 - (sum(s)/sum(s1))
 
 
-    else:
-        s = s1
-        eps = 1.0 - (sum(s)/sum(s1))
-
-
-    M_new = ncon((U, M),([1,-1], [1,-2,-3,-4])) 
-    M_new = ncon((M_new, U),([-1,1,-3,-4], [1,-2]))  # With Dbond=41, this combination took 54 sec
+    U = U.reshape(int(sqrt(np.size(U,0))),int(sqrt(np.size(U,0))),np.size(U,1))
+    M_new =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
 
     norm = LA.norm(M_new)
- 
-    nc += (2**((2*Niters)-count)) * np.log(norm)
 
-    if norm != 0:   # and count != Niters
+    if norm != 0:
         T = M_new/norm
 
     else: 
@@ -275,13 +273,12 @@ def coarse_graining(matrix, eps, nc, count):
     return T, eps, nc, count  
 
 
-
 def renyi(Rho, nmax): 
 
-    for i in range (0,nmax):
+    for i in range (2,nmax+1):
 
-        rho[i] = matrix_power(Rho, i+2)           # Raise to power "n" [\rho_A]^n 
-        S[i] = math.log(np.trace(rho[i]))/(-1-i)  # Take log and divide by 1-n  
+        rho[i-2] = matrix_power(Rho, i)             # Raise to power "n" [\rho_A]^n 
+        S[i-2] = math.log(np.trace(rho[i-2]))/(1-i) # Take log and divide by 1-n  
     
     return S 
 
@@ -313,11 +310,10 @@ if __name__ == "__main__":
 
         T, eps, nc, count = coarse_graining(T, eps, nc, count)   
 
-    T = T.transpose(2,3,1,0)   
-    T = np.einsum("iikl->kl", T)
+    T = T.transpose(2,3,1,0)    # Rotate CCW 90 degrees ** 
+    Tnew = ncon((T, T),([1,2,-1,-2], [2,1,-3,-4])) 
 
-    Tnew = np.einsum("ij,kl", T, T)   # Assuming system/sub-system of same size!
-    # Need to try different sub-system sizes!
+    Tnew = Tnew.transpose(0,2,1,3)  # Combine correct indices (top and bottom) 
     Tnew = Tnew.reshape(D_cut**2, D_cut**2)
 
 
@@ -329,15 +325,16 @@ if __name__ == "__main__":
 
     Tnew = Tnew/np.trace(Tnew)                   # 1. Normalize to recognize (T)^Nt as \rho
     Tnew = Tnew.reshape(D_cut,D_cut,D_cut,D_cut) # 2. Expose indices for A & B respectively 
-    rho_A = np.einsum("klii->kl", Tnew)          # 3. Trace over environment/ subsystem B, or A as chosen
-    rho_A = rho_A/np.trace(rho_A)                # 4. Normalize the density matrix again    
+    rho_A = np.einsum("klii", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
+    # Trace of \rho should be ~1 already, no need to divide anymore!  
 
     EE = renyi(rho_A, nmax)
-    print ("S_Renyi_2 =", EE[0])
+    print (beta, EE[0])  
 
-    if verbose:
-        print ("Finished",count,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "and beta", beta) 
-        print ("-----------------------------------------------------------------")          
+
+    if verbose: 
+        print ("Finished",count+1,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "with rmax =", rmax , "and beta", beta)          
         print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        print ("-----------------------------------------------------------------") 
 
 
