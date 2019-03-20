@@ -1,4 +1,4 @@
-STARTED:  2019-03-19 15:16:06
+STARTED:  2019-03-19 21:54:28
 Iteration 1 of 8
 Iteration 2 of 8
 Iteration 3 of 8
@@ -7,5 +7,6 @@ Iteration 5 of 8
 Iteration 6 of 8
 Iteration 7 of 8
 Iteration 8 of 8
-Temperature is 1.05  and free energy using HOTRG is -0.4573826552095268
-COMPLETED:  2019-03-19 15:16:24
+Temperature is 1.05  and free energy using HOTRG is -0.5591111819313216
+Bond dimension used was 35
+COMPLETED:  2019-03-19 21:55:09

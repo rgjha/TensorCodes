@@ -3,6 +3,10 @@
 # susceptibility of free energy, magnetization, critical exponent. 
 # In progress!  March 4, 2019
 
+if len(sys.argv) < 4:
+  print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>  <TNR is 1, HOTRG is 0> ")
+  sys.exit(1)
+
 import sys
 import math
 from math import sqrt
@@ -18,12 +22,6 @@ from ncon import ncon
 from doTNR import doTNR     # See doTNR.py for details !
 
 
-
-if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>  <TNR is 1, HOTRG is 0> ")
-  sys.exit(1)
-
-
 Temp =  float(sys.argv[1])
 h =  float(sys.argv[2])
 flag = int(sys.argv[3])
@@ -33,8 +31,8 @@ beta = float(1.0/Temp)
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=30
-D_cut=30
+D=35
+D_cut=35
 Niters=8
 Ns = int(2**((Niters)))
 Nt = Ns  
@@ -42,12 +40,15 @@ vol = Ns**2
 numlevels = Niters # number of coarse-grainings
 
 
+Dn = int(D/2.0)
+
 ##### Set bond dimensions and options
-chiM = 12
-chiS = 12
-chiU = 12
-chiH = 12       
-chiV = 12        
+chiM = 17
+chiS = 17
+chiU = 17
+chiH = 17      
+chiV = 17
+#Increasing these makes it more accurate!        
 
 
 ###### Initialize tensor lists
@@ -60,12 +61,6 @@ vC = [0 for x in range(numlevels)]
 wC = [0 for x in range(numlevels)]
 
 
-OPTS_dtol = 1e-5 # eigenvalue threshold for automatic truncate indication of indices
-OPTS_disiter = 2000 # maximum number of iterations in disentangler optimization
-OPTS_miniter = 200 # minimum number of iterations in disentangler optimization
-OPTS_dispon = True # display information during optimization
-OPTS_convtol = 0.01 # threshold for relative error change to stop disentangler optimization
-
 
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
@@ -73,7 +68,6 @@ print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 A = np.zeros([D])     
 L = np.zeros([D])              
-B = np.zeros([2*D])
 ATNR = [0 for x in range(numlevels+1)];
 ATNRnorm = [0 for x in range(numlevels+1)]; 
 
@@ -128,22 +122,27 @@ def coarse_graining(matrix, eps, nc, count):
 
 if __name__ == "__main__":
 
-    for i in range (0,D):
+    for i in range (-Dn,Dn+1):
 
-        L[i] = np.sqrt(sp.special.iv(i, beta))
+        #print ("i is", i)
+        #print ("i+Dn is", i+Dn)
+        L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
  
     T = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
     betah=beta*h
 
-    for l in range (0,D):
-        for r in range (0,D):
-            for u in range (0,D):
-                for d in range (0,D):
+    for l in range (-Dn,Dn+1):
+        for r in range (-Dn,Dn+1):
+            for u in range (-Dn,Dn+1):
+                for d in range (-Dn,Dn+1):
 
                     index = l+u-r-d
                     
                     if index != 0:
-                        T[l][r][u][d] = 0.0  
+                        T[l+Dn][r+Dn][u+Dn][d+Dn] = 0.0 
+
+                    else:
+                        T[l+Dn][r+Dn][u+Dn][d+Dn] *= sp.special.iv(index, betah)
 
     norm = LA.norm(T)
     T /= norm 
@@ -171,6 +170,8 @@ if __name__ == "__main__":
         lnZ = np.log(trT) + nc  
 
         print ("Temperature is", Temp, " and free energy using HOTRG is", -lnZ/(vol*beta))
+        print ("Bond dimension used was", D_cut)
+        #print (Temp, -lnZ/(vol*beta))
 
 
 
@@ -184,7 +185,17 @@ if __name__ == "__main__":
         for k in range(numlevels):
             print ("Iteration", int(k+1), "of" , numlevels)
             ATNR[k+1], qC[k], sC[k], uC[k], yC[k], vC[k], wC[k], ATNRnorm[k+1], SPerrs[k,:] = \
-            doTNR(ATNR[0],[chiM,chiS,chiU,chiH,chiV], 1e-13, 3000, 100, True, 0.01)
+            doTNR(ATNR[k],[chiM,chiS,chiU,chiH,chiV], 1e-8, 1000, 100, True, 0.1)
+
+
+            ''' 
+            1st argument: Eigenvalue threshold for automatic truncate indication of indices
+            (increase means less accurate!)
+            2nd argument: Maximum number of iterations in disentangler optimization
+            3rd argument: Minimum number of iterations in disentangler optimization
+            4th argument: Display information during optimization
+            5th argument: Threshold for relative error change to stop disentangler optimization 
+            '''
 
 
         Volume = 2**(2*np.int64(np.array(range(1,18)))-2)   # 4^n, where n runs from 0 ... max 
@@ -194,8 +205,8 @@ if __name__ == "__main__":
             Hgauge = ncon([vC[k-1],vC[k-1]],[[1,2,-1],[2,1,-2]])
             Vgauge = ncon([wC[k-1],wC[k-1]],[[1,2,-1],[2,1,-2]])
             FreeEnergy[k-1] = -1.0*(sum((4**np.int64(np.array(range(k,-1,-1))))*np.log(ATNRnorm[:(k+1)]))+ \
-            np.log(ncon([ATNR[k],Hgauge,Vgauge],[[1,3,2,4],[1,2],[3,4]])))/Volume[k] 
+            np.log(ncon([ATNR[k],Hgauge,Vgauge],[[1,3,2,4],[1,2],[3,4]])))
 
-        print ("Temperature is", Temp, "and free energy using TNR is", FreeEnergy[numlevels-1])
+        print ("Temperature is", Temp, "and free energy using TNR is", FreeEnergy[numlevels-1]/(beta*(4**numlevels)))
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

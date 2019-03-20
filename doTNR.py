@@ -27,8 +27,7 @@ Additional remarks by RGJ
 -- This code belongs to the author above. It has been modified and comments have 
 been added. doTNR is called by (2d_TNR_method.py). The free energy calculated 
 using HOTRG (2d_trg.py) and with TNR method agrees. It is still not unclear
-how to embed the Polyakov loop to TNR code. 
-'''
+how to embed the Polyakov loop to TNR code. '''
 
 
     chiHI = A.shape[0]
