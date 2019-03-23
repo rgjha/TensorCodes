@@ -40,7 +40,6 @@ N_r = int(sum(np.square(dim)))
 N_m = int(max(dim))                              
 Niters = 6
 Niters_time = Niters 
-Niters_time = 6
 c=0.01 
 Ns = int(2**((Niters)))
 Nt = int(2**((Niters_time))) 
@@ -53,8 +52,7 @@ verbose = int(sys.argv[1])
 nmax = int(sys.argv[2])    # Maximum order of Renyi entropy, n=1 is von Neumann
 kappa = float(sys.argv[3])
                                
-A = np.zeros([N_r, N_r])       
-Atilde = np.zeros([N_r, N_r, 2, 2])          
+A = np.zeros([N_r, N_r])                
 B = np.zeros([N_r, N_r, N_r, N_r])
 rho = [None] * nmax
 S = [None] * nmax
@@ -91,19 +89,6 @@ def factorial(N):
     return result
 #####################################
 
-
-##############################
-def contract_reshape(A, B, dout):
-    if dout < 0:
-        raise ValueError("Dimension of matrix is negative !!! ")
-        return 0
-
-    dum = np.tensordot(A,B,axes=([3,2]))  # Note that 0=left, 1=right, 2=top, 3=bottom 
-    dum = dum.transpose(0,3,1,4,2,5)
-    out = dum.reshape(dout, dout, N_r, N_r)  
-
-    return out
-#####################################
 
 
 #####################################
@@ -187,7 +172,6 @@ def make_tensorA(rep):
                             for sigma in range(abs(r_l-r_r), abs(r_l+r_r)+1, 2): 
                                 CG1 = CGC((r_l/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_bl)
                                 CG2 = CGC((r_l/2.0), m_ar, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_br) 
-                                #print ("SIGMA AND KAPPA", sigma, kappa)
                                 A[k][l] += Fr((sigma), kappa) *  CG1  *  CG2 / (r_r + 1)
     return A  
 ##############################
@@ -326,7 +310,7 @@ if __name__ == "__main__":
     Tnew = Tnew/np.trace(Tnew)                   # 1. Normalize to recognize (T)^Nt as \rho
     Tnew = Tnew.reshape(D_cut,D_cut,D_cut,D_cut) # 2. Expose indices for A & B respectively 
     rho_A = np.einsum("klii", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
-    # Trace of \rho should be ~1 already, no need to divide anymore!  
+    # Trace of \rho should be ~1 already, no need to divide!  
 
     EE = renyi(rho_A, nmax)
     print (beta, EE[0])  
