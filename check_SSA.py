@@ -5,6 +5,7 @@
 
 # 23/3/2019
 
+
 import sys
 import math
 import random
@@ -24,15 +25,16 @@ from random import randrange
 from math import log
 from scipy.linalg import logm, expm
 
+
+if len(sys.argv) < 4:
+  print("Usage:", str(sys.argv[0]), "dimA " "dimB" "dimC" )
+  sys.exit(1)
+
 dimA = int(sys.argv[1])
 dimB = int(sys.argv[2])
 dimC = int(sys.argv[3])
 # H = HA ⊗ HB ⊗ HC 
 
-
-if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), "dimA " "dimB" "dimC" )
-  sys.exit(1)
 
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
@@ -57,6 +59,17 @@ def dagger(a):
 ##############################
 
 
+
+##############################
+def e(i,dimension):
+
+	mat = np.zeros([dimension])
+	mat[i] = 1.0 
+
+	return mat
+##############################
+
+
 if __name__ == "__main__":
 
 
@@ -76,46 +89,34 @@ if __name__ == "__main__":
 
 	for i in range (0,dimB):
 
-		b[i] = 1.0
-		tmp = np.kron(np.kron(Ia, b), Ic)
+		tmp = np.kron(np.kron(Ia, e(i,dimB)), Ic)
 		rho_AC += multi_dot([tmp, rho_ABC, tmp.T])
-		b[i] = 0.0
-
 
 
 	for i in range (0,dimA):
-		a[i] = 1.0
-		tmp = np.kron(np.kron(a, Ib), Ic)
+
+		tmp = np.kron(np.kron(e(i,dimA), Ib), Ic)
 		rho_BC += multi_dot([tmp, rho_ABC, tmp.T])
-		a[i] = 0.0
 
 
 	for i in range (0,dimA):
 		for k in range (0,dimB):
 
-			a[i] = 1.0
-			b[k] = 1.0
-			tmp = np.kron(np.kron(a, b), Ic)
+			tmp = np.kron(np.kron(e(i,dimA), e(i,dimB)), Ic)
 			rho_C += multi_dot([tmp, rho_ABC, tmp.T])
-			a[i] = 0.0
-			b[k] = 0.0
+
 
 	SBC = -1.0 * np.trace(np.dot(rho_BC, logm(rho_BC))).real
-	print ("SBC is", SBC)
-
+	print ("SBC =", SBC)
 	SAC = -1.0 * np.trace(np.dot(rho_AC, logm(rho_AC))).real
-	print ("SAC is", SAC)
-
+	print ("SAC =", SAC)
 	SC = -1.0 * np.trace(np.dot(rho_C, logm(rho_C))).real
-	print ("SC is", SC)
-
-	SABC = -1.0 * np.trace(np.dot(rho_ABC, logm(rho_ABC))).real  # logm(a)
+	print ("SC =", SC)
+	SABC = -1.0 * np.trace(np.dot(rho_ABC, logm(rho_ABC))).real  # logm - Matrix log!
 	print ("SABC is", SABC)
-
 	print ("SAC + SBC - SABC - SC = ", SAC + SBC - SABC - SC) # Must be + always for SSA to hold!
 	print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
 
 
-	 
