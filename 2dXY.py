@@ -2,7 +2,7 @@
 # Calculate free energy, internal energy, 
 # susceptibility of free energy, magnetization, critical exponent. 
 # In progress!  March 4, 2019
-# Restarted: Nov 3, 2019 
+# Restarted: Nov 3, 2019
 
 # VAR = Sqrt[BesselI[l, a]]*Sqrt[BesselI[r, a]]*Sqrt[BesselI[u, a]]*Sqrt[BesselI[d, a]]*BesselI[(l + u - r - d), a*z]; 
 # D[VAR, z] 1/VAR
@@ -37,8 +37,8 @@ beta = float(1.0/Temp)
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=25
-D_cut=25
+D=37
+D_cut=37
 Niters=8
 Ns = int(2**((Niters)))
 Nt = Ns  
@@ -101,7 +101,7 @@ def dagger(a):
 
 
 
-def coarse_graining(matrix, count):
+def coarse_graining(matrix):
 
     T = matrix  
     d = D**2
@@ -125,12 +125,11 @@ def coarse_graining(matrix, count):
 
         s = s1[:D_cut] 
         U = U[:,:D_cut]  
-
-    count += 1 
+ 
     U = U.reshape(D,D,D)
     T =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
     
-    return T, count  
+    return T 
 
 
 if __name__ == "__main__":
@@ -140,8 +139,9 @@ if __name__ == "__main__":
         L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
  
     T = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
+    TI = ncon((L, L, L, L),([-1],[-2],[-3],[-4]))
     betah=beta*h
-    Timpure = T
+
 
     for l in range (-Dn,Dn+1):
         for r in range (-Dn,Dn+1):
@@ -150,17 +150,16 @@ if __name__ == "__main__":
 
                     index = l+u-r-d
 
-                    if betah != 0:
-                        Timpure[l+Dn][r+Dn][u+Dn][d+Dn] *= beta*0.50*(sp.special.iv(index-1, betah) + sp.special.iv(index+1, betah))
-                    
-                    if index != 0:
-                        T[l+Dn][r+Dn][u+Dn][d+Dn] = 0.0 
+                    T[l+Dn][r+Dn][u+Dn][d+Dn] *= sp.special.iv(index, betah)
 
-                    else:
-                        T[l+Dn][r+Dn][u+Dn][d+Dn] *= sp.special.iv(index, betah)
+                    if betah != 0:
+                        TI[l+Dn][r+Dn][u+Dn][d+Dn] = T[l+Dn][r+Dn][u+Dn][d+Dn] * beta*0.50*(sp.special.iv(index-1, betah) + sp.special.iv(index+1, betah))
+
+                       
 
     norm = LA.norm(T)
     T /= norm 
+    norm_all[0] = norm 
     nc = (2**((2*numlevels))) * np.log(norm)
     count = 0.0 
     eps = 0.0  
@@ -170,28 +169,53 @@ if __name__ == "__main__":
 
         for i in range (0,Niters):
 
-            T, count = coarse_graining(T, count) 
+            T = coarse_graining(T) 
+            count += 1 
             norm = LA.norm(T) 
             T /= norm 
             norm_all[int(count)] = norm 
             nc += (2**((2*numlevels)-count)) * np.log(norm)
 
+        nc_pure = nc 
+
+
+        TI /= LA.norm(TI)
+        nc = (2**((2*numlevels))) * np.log(LA.norm(TI)) 
+        count=0
+
+
+        for i in range (0,Niters):
+
+            
+            TI = coarse_graining(TI) 
+            count += 1 
+            TI  /= norm_all[count] 
+            nc += (2**((2*numlevels)-count)) * np.log(norm_all[count])
+
 
         T = np.einsum("iikl->kl", T)
+        TI  = np.einsum("iikl->kl", TI)
 
         for i in range (0, Niters):
 
             T = np.dot(T, T)
             T /= np.trace(T)
+            TI  = np.dot(TI , TI)
+            TI  /= np.trace(T)
 
 
         trT = np.einsum("ii", T)
-        #trT = trT * np.sqrt(vol)
-        lnZ = np.log(trT) + nc  
+        lnZ = np.log(trT) + nc_pure  
+
+        trTimpure = np.einsum("ii", TI)
+        #print ("Trace imp.",trTimpure)
+        lnZimpure = nc
+
 
         #print ("Temperature is", Temp, " and free energy using HOTRG is", -lnZ/(vol*beta))
         #print ("Bond dimension used was", D_cut)
-        print (Temp, -lnZ/(vol*beta))
+        print (Temp, -lnZ/(vol*beta), -lnZimpure/(vol*beta))
+        #print (Temp, -lnZ/(vol*beta))
 
 
 
