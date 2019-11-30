@@ -4,9 +4,7 @@ import numpy as np
 from numpy import linalg as LA
 from ncon import ncon
 
-
-def  doTNR(A,allchi, eigen_tol = 1e-14, maximum_disent_iter = 1000, minimum_iter = 100,  display = True, convergence_tol = 0.01):
-    """
+"""
 ------------------------
 by Glen Evenbly (c)
 ------------------------
@@ -30,17 +28,17 @@ using HOTRG (2d_trg.py) and with TNR method agrees. It is still not unclear
 how to embed the Polyakov loop to TNR code. '''
 
 
+def  doTNR(A,allchi, eigen_tol = 1e-8, maximum_disent_iter = 1000, minimum_iter = 100,  display = True, convergence_tol = 0.01):
+
     chiHI = A.shape[0]
     chiVI = A.shape[1]
     chiM = min(allchi[0],chiHI*chiVI)
     chiU = min(allchi[2],chiVI)
-    #chiH = min(allchi[3],chiHI**2)
-    #chiV = min(allchi[4],chiU**2)
+    chiH = min(allchi[3],chiHI**2)
+    chiV = min(allchi[4],chiU**2)
 
-    chiH = chiHI**2
-    chiV = allchi[4]
-
-    #print ("Shape of A in", np.shape(A))
+    #chiH = chiHI**2
+    #chiV = allchi[4]
     
 
     #-------------------------------------------------------------------------------------------#

@@ -2,10 +2,11 @@
 # Calculate free energy, internal energy, 
 # susceptibility of free energy, magnetization, critical exponent. 
 # In progress!  March 4, 2019
+# Restarted: Nov 3, 2019 
 
-if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>  <TNR is 1, HOTRG is 0> ")
-  sys.exit(1)
+# VAR = Sqrt[BesselI[l, a]]*Sqrt[BesselI[r, a]]*Sqrt[BesselI[u, a]]*Sqrt[BesselI[d, a]]*BesselI[(l + u - r - d), a*z]; 
+# D[VAR, z] 1/VAR
+
 
 import sys
 import math
@@ -20,6 +21,11 @@ import time
 import datetime 
 from ncon import ncon
 from doTNR import doTNR     # See doTNR.py for details !
+
+if len(sys.argv) < 4:
+  print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>  <TNR is 1, HOTRG is 0> ")
+  sys.exit(1)
+
 
 
 Temp =  float(sys.argv[1])
@@ -38,6 +44,7 @@ Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
 numlevels = Niters # number of coarse-grainings
+norm_all = [0 for x in range(numlevels+1)]
 
 
 if D%2 == 0:
@@ -75,6 +82,7 @@ A = np.zeros([D])
 L = np.zeros([D])              
 ATNR = [0 for x in range(numlevels+1)];
 ATNRnorm = [0 for x in range(numlevels+1)]; 
+sXcg = [0 for x in range(numlevels+1)]; 
 
 
 ##############################
@@ -93,7 +101,7 @@ def dagger(a):
 
 
 
-def coarse_graining(matrix, eps, nc, count):
+def coarse_graining(matrix, count):
 
     T = matrix  
     d = D**2
@@ -118,24 +126,11 @@ def coarse_graining(matrix, eps, nc, count):
         s = s1[:D_cut] 
         U = U[:,:D_cut]  
 
-    else:
-        s = s1
-        eps = 1.0 - (sum(s)/sum(s1))
-        print ("Error is", eps)
-
     count += 1 
     U = U.reshape(D,D,D)
-    M_new =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
-    norm = LA.norm(M_new)
-    nc += (2**((2*numlevels)-count)) * np.log(norm)
-
-    if norm != 0:
-        T = M_new/norm 
-
-    else: 
-      T = M_new
+    T =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
     
-    return T, eps, nc, count  
+    return T, count  
 
 
 if __name__ == "__main__":
@@ -146,6 +141,7 @@ if __name__ == "__main__":
  
     T = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
     betah=beta*h
+    Timpure = T
 
     for l in range (-Dn,Dn+1):
         for r in range (-Dn,Dn+1):
@@ -153,6 +149,9 @@ if __name__ == "__main__":
                 for d in range (-Dn,Dn+1):
 
                     index = l+u-r-d
+
+                    if betah != 0:
+                        Timpure[l+Dn][r+Dn][u+Dn][d+Dn] *= beta*0.50*(sp.special.iv(index-1, betah) + sp.special.iv(index+1, betah))
                     
                     if index != 0:
                         T[l+Dn][r+Dn][u+Dn][d+Dn] = 0.0 
@@ -171,8 +170,13 @@ if __name__ == "__main__":
 
         for i in range (0,Niters):
 
-            T, eps, nc, count = coarse_graining(T, eps, nc, count)   
-   
+            T, count = coarse_graining(T, count) 
+            norm = LA.norm(T) 
+            T /= norm 
+            norm_all[int(count)] = norm 
+            nc += (2**((2*numlevels)-count)) * np.log(norm)
+
+
         T = np.einsum("iikl->kl", T)
 
         for i in range (0, Niters):
@@ -185,9 +189,9 @@ if __name__ == "__main__":
         #trT = trT * np.sqrt(vol)
         lnZ = np.log(trT) + nc  
 
-        print ("Temperature is", Temp, " and free energy using HOTRG is", -lnZ/(vol*beta))
-        print ("Bond dimension used was", D_cut)
-        #print (Temp, -lnZ/(vol*beta))
+        #print ("Temperature is", Temp, " and free energy using HOTRG is", -lnZ/(vol*beta))
+        #print ("Bond dimension used was", D_cut)
+        print (Temp, -lnZ/(vol*beta))
 
 
 
@@ -197,13 +201,12 @@ if __name__ == "__main__":
 
         ATNR[0] = T 
         ATNRnorm[0] = norm 
+        sXcg[0] = Timpure  
 
         for k in range(numlevels):
             print ("Iteration", int(k+1), "of" , numlevels)
             ATNR[k+1], qC[k], sC[k], uC[k], yC[k], vC[k], wC[k], ATNRnorm[k+1], SPerrs[k,:] = \
             doTNR(ATNR[k],[chiM,chiS,chiU,chiH,chiV], 1e-8, 1000, 100, True, 0.1)
-            #print('RGstep: %d, Truncation Errors: %e, %e, %e, %e' % \
-            #    (k+1,SPerrs[k,0],SPerrs[k,1],SPerrs[k,2],SPerrs[k,3]))
             Tmp = ATNR[k+1] 
             norm = ATNRnorm[k+1]
 
