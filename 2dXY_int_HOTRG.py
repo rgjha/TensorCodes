@@ -15,7 +15,6 @@ from numpy import ndarray
 import time
 import datetime 
 from ncon import ncon
-from doTNR import doTNR     # See doTNR.py for details !
 
 if len(sys.argv) < 3:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>" )
@@ -27,8 +26,8 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=25
-D_cut=25
+D=5
+D_cut=5
 Niters=6
 Ns = int(2**((Niters)))
 Nt = Ns  
@@ -70,44 +69,6 @@ def dagger(a):
 
     return np.transpose(a).conj()
 ##############################
-
-
-
-def coarse_graining(matrix, in2):
-
-    T = matrix  
-    TI = in2 
-    d = D**2
-
-    print ("Iteration", int(count+1), "of" , numlevels) 
-    Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4])) # * 
-    Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2])) # * 
-    MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2])) # * 
-    MMdag_prime = MMdag_prime.reshape(D**2, D**2) 
-
-    # MMdag_prime = ncon((T,T,T,T),([-1,1,2,3], [-3,1,2,4], [-2,5,3,6], [-4,5,4,6]))
-    # Above line is equivalent to three * marked lines. 
-    # But at least 13 times slower! 
-
-    w, U = LA.eigh(MMdag_prime)
-    idx = w.argsort()[::-1]
-    s1 = w[idx]
-    U = U[:,idx] 
-
-    if np.size(U,1) > D_cut: 
-
-        s = s1[:D_cut] 
-        U = U[:,:D_cut]  
- 
-    U = U.reshape(D,D,D)
-    T =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
-    TI = ncon((U, TI, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
-    val = LA.norm(T) 
-
-
-    return T, TI, val 
-
-
 
 def CG_net(matrix, in2):
 
@@ -198,12 +159,12 @@ if __name__ == "__main__":
  
     betah=beta*h
     T = get_tensor()
-    TI = get_site_mag()
-    print ("Norm", LA.norm(TI))
+    Tim = get_site_mag()
+    print ("Norm", LA.norm(Tim))
 
     norm = LA.norm(T)
     T /= norm 
-    TI /= norm 
+    Tim /= norm 
 
 
     i = 0
@@ -213,10 +174,10 @@ if __name__ == "__main__":
     N = 1
     
     
-    a, s, maxAA = CG_net(T, TI)
+    a, s, maxAA = CG_net(T, Tim)
     C = np.log(maxAA)+4*C
     N *= 4.
-    if i >= 10:
+    if i >= 3:
         Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
         f = -Temp*(np.log(Z)+4*C)/(4*N)
         delta_f = np.abs((f - f_i)/f)
