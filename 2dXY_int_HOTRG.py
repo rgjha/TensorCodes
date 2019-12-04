@@ -1,6 +1,7 @@
 # Tensor formulation of a classical statistical 2d model
-# This implements the internet way. 
-# Checking if it reproduces. 
+# This implements the method w/out transfer matrix 
+# by blocking simulatenously along both directions. 
+#
 
 
 import sys
@@ -26,9 +27,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=9
-D_cut=9
-Niters=3
+D=17
+D_cut=17
+Niters=8
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -56,6 +57,42 @@ ATNRnorm = [0 for x in range(numlevels+1)];
 sXcg = [0 for x in range(numlevels+1)]; 
 
 
+def tensorsvd(T_input,leftlegs,rightlegs,D='infinity'):
+    '''Reshapes a tensor T_input into a matrix with first index corresponding
+    to leftlegs and second index corresponding to rightlegs. Takes SVD
+    and outputs U, s, V. U and V are reshaped to tensors leftlegs x D and 
+    D x rightlegs respectively.
+    '''
+    T = np.transpose(T_input,leftlegs+rightlegs)
+    xsize = 1
+    leftsize_register = []
+    for i in range(len(leftlegs)):
+        xsize *= T.shape[i]
+        leftsize_register.append(T.shape[i])
+    ysize = 1
+    rightsize_register = []
+    for i in range(len(leftlegs),len(leftlegs)+len(rightlegs)):
+        ysize *= T.shape[i]
+        rightsize_register.append(T.shape[i])
+    T = np.reshape(T,(xsize,ysize))
+    
+    U, s, V = np.linalg.svd(T,full_matrices = False)
+    
+    if D != 'infinity' and D < len(s):
+        s = np.diag(s[:D])
+        U = U[:,:D]
+        V = V[:D,:]
+    else:
+        D = len(s)
+        s = np.diag(s)
+        
+    U = np.reshape(U,leftsize_register+[D])
+    V = np.reshape(V,[D]+rightsize_register)
+        
+        
+    return U, s, V
+
+
 ##############################
 def zeta_proxy(A):
     w, U = LA.eigh(A) 
@@ -77,40 +114,15 @@ def CG_net(matrix, in2):
     d = D**2
 
     A = ncon([T,T],[[-2,-3,-4,1],[-1,1,-5,-6]])
-    #U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D) 
-    MMdag_prime = np.transpose(A,[0,1]+[2,3,4,5])
-    w, U = LA.eigh(MMdag_prime)
-    idx = w.argsort()[::-1]
-    s1 = w[idx]
-    U = U[:,idx] 
-
-    if np.size(U,1) > D_cut: 
-
-        s = s1[:D_cut] 
-        U = U[:,:D_cut] 
-
-    print ("OKK")
-
+    U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut) 
     A = ncon([U,A,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
+    #A = np.einsum("ijk,ijpqrs,rqt->kpts", U, A, U)
     B = ncon([TI,T],[[-2,-3,-4,1],[-1,1,-5,-6]])    
     B = ncon([U,B,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
     
     AA = ncon([A,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
-    print ("Shape ", np.shape(AA))
-    #U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D)  
-
-    MMdag_prime = np.transpose(AA,[1,2]+[0,3,4,5])
-    w, U = LA.eigh(MMdag_prime)
-    idx = w.argsort()[::-1]
-    s1 = w[idx]
-    U = U[:,idx]
-
-    print ("OKK1") 
-
-    if np.size(U,1) > D_cut: 
-
-        s = s1[:D_cut] 
-        U = U[:,:D_cut]
+    #print ("Shape AA ", np.shape(AA))
+    U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D)  
 
     AA = ncon([U,AA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])  
     BA = ncon([B,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
@@ -165,7 +177,6 @@ if __name__ == "__main__":
     betah=beta*h
     T = get_tensor()
     Tim = get_site_mag()
-    print ("Norm", LA.norm(Tim))
 
     norm = LA.norm(T)
     T /= norm 
@@ -173,19 +184,21 @@ if __name__ == "__main__":
 
 
     Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
-    f_i = -Temp*(np.log(Z))/(4)
     C = 0
     N = 1
+    C = np.log(norm)+4*C
+    f = -Temp*(np.log(Z)+4*C)/(4*N)
 
     print ("Entering coarse-graining")
 
     for i in range (Niters):
 
+        
         T, Tim, norm = CG_net(T, Tim)
-        print ("Done one")
         C = np.log(norm)+4*C
         N *= 4.
         f = -Temp*(np.log(Z)+4*C)/(4*N)
+        print ("Free energy", f)
 
         if i == Niters-1:
             Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
@@ -193,11 +206,6 @@ if __name__ == "__main__":
             
         
     print ("free is", f)
-    #print (Temp, -lnZ/(vol*beta))
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
-
-
-
-    

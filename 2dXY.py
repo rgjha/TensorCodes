@@ -41,7 +41,7 @@ beta = float(1.0/Temp)
 
 D=27
 D_cut=27
-Niters=20
+Niters=12
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -134,7 +134,7 @@ def coarse_graining(matrix, in2):
     #TI = ncon((U, TI, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
     val = LA.norm(T) 
 
-
+    '''
     Za = ncon((TI, matrix),([-1,1,2,-2], [-3,1,2,-4])) 
     Zb = ncon((matrix, matrix),([-1,1,-2,2], [-3,1,-4,2])) 
     MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2]))  
@@ -150,6 +150,7 @@ def coarse_graining(matrix, in2):
         U = U[:,:D_cut]  
  
     U = U.reshape(D,D,D)
+    '''
     TI =  ncon((U, TI, matrix, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
 
     return T, TI, val 
@@ -185,7 +186,7 @@ def get_site_mag():
             for u in range (-Dn,Dn+1):
                 for d in range (-Dn,Dn+1):
                     index = l+u-r-d
-                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= 0.50*(sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
+                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= beta*0.50*(sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
 
     return out 
 
@@ -228,7 +229,7 @@ if __name__ == "__main__":
         for i in range (0, Niters):
 
             
-            TI  = np.dot(TI,T)
+            TI  = np.dot(T, TI)
             T = np.dot(T,T)
             norm = np.trace(T)
             T /= norm 
@@ -238,7 +239,7 @@ if __name__ == "__main__":
 
         lnZ = np.log(np.einsum("ii", T)) + nc_pure  
 
-        print ("T, f, vol, and M ", Temp, -lnZ/(vol*beta), vol, beta*(np.einsum("ii", TI)/np.einsum("ii", T)))
+        print ("T, f, vol, and M ", Temp, -lnZ/(vol*beta), vol, (np.einsum("ii", TI)/np.einsum("ii", T)))
 
 
 
