@@ -26,9 +26,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=5
-D_cut=5
-Niters=6
+D=9
+D_cut=9
+Niters=3
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -89,18 +89,23 @@ def CG_net(matrix, in2):
         s = s1[:D_cut] 
         U = U[:,:D_cut] 
 
+    print ("OKK")
+
     A = ncon([U,A,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
     B = ncon([TI,T],[[-2,-3,-4,1],[-1,1,-5,-6]])    
     B = ncon([U,B,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
     
     AA = ncon([A,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
+    print ("Shape ", np.shape(AA))
     #U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D)  
 
     MMdag_prime = np.transpose(AA,[1,2]+[0,3,4,5])
     w, U = LA.eigh(MMdag_prime)
     idx = w.argsort()[::-1]
     s1 = w[idx]
-    U = U[:,idx] 
+    U = U[:,idx]
+
+    print ("OKK1") 
 
     if np.size(U,1) > D_cut: 
 
@@ -167,27 +172,24 @@ if __name__ == "__main__":
     Tim /= norm 
 
 
-    i = 0
     Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
     f_i = -Temp*(np.log(Z))/(4)
     C = 0
     N = 1
-    
-    
-    a, s, maxAA = CG_net(T, Tim)
-    C = np.log(maxAA)+4*C
-    N *= 4.
-    if i >= 3:
-        Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
-        f = -Temp*(np.log(Z)+4*C)/(4*N)
-        delta_f = np.abs((f - f_i)/f)
 
-        while delta_f > 0.000001:
-            f_i = f
-            i += 1
-   
-        Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
-        f = -temp*(np.log(Z)+4*C)/(4*N)
+    print ("Entering coarse-graining")
+
+    for i in range (Niters):
+
+        T, Tim, norm = CG_net(T, Tim)
+        print ("Done one")
+        C = np.log(norm)+4*C
+        N *= 4.
+        f = -Temp*(np.log(Z)+4*C)/(4*N)
+
+        if i == Niters-1:
+            Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
+            f = -Temp*(np.log(Z)+4*C)/(4*N)
             
         
     print ("free is", f)

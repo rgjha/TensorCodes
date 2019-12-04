@@ -7,6 +7,8 @@
 # VAR = Sqrt[BesselI[l, a]]*Sqrt[BesselI[r, a]]*Sqrt[BesselI[u, a]]*Sqrt[BesselI[d, a]]*BesselI[(l + u - r - d), a*z]; 
 # D[VAR, z] 1/VAR
 
+# M=0.78 @ T=0.45 
+
 
 import sys
 import math
@@ -37,9 +39,9 @@ beta = float(1.0/Temp)
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=35
-D_cut=35
-Niters=3
+D=27
+D_cut=27
+Niters=20
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -107,7 +109,7 @@ def coarse_graining(matrix, in2):
     TI = in2 
     d = D**2
 
-    print ("Iteration", int(count+1), "of" , numlevels) 
+    #print ("Iteration", int(count+1), "of" , numlevels) 
     Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4])) # * 
     Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2])) # * 
     MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2])) # * 
@@ -115,7 +117,7 @@ def coarse_graining(matrix, in2):
 
     # MMdag_prime = ncon((T,T,T,T),([-1,1,2,3], [-3,1,2,4], [-2,5,3,6], [-4,5,4,6]))
     # Above line is equivalent to three * marked lines. 
-    # But at least 13 times slower! 
+    # But at least 6-8 times slower! 
 
     w, U = LA.eigh(MMdag_prime)
     idx = w.argsort()[::-1]
@@ -129,9 +131,26 @@ def coarse_graining(matrix, in2):
  
     U = U.reshape(D,D,D)
     T =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
-    TI = ncon((U, TI, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
+    #TI = ncon((U, TI, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
     val = LA.norm(T) 
 
+
+    Za = ncon((TI, matrix),([-1,1,2,-2], [-3,1,2,-4])) 
+    Zb = ncon((matrix, matrix),([-1,1,-2,2], [-3,1,-4,2])) 
+    MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2]))  
+    MMdag_prime = MMdag_prime.reshape(D**2, D**2) 
+    w, U = LA.eigh(MMdag_prime)
+    idx = w.argsort()[::-1]
+    s1 = w[idx]
+    U = U[:,idx] 
+
+    if np.size(U,1) > D_cut: 
+
+        s = s1[:D_cut] 
+        U = U[:,:D_cut]  
+ 
+    U = U.reshape(D,D,D)
+    TI =  ncon((U, TI, matrix, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
 
     return T, TI, val 
 
@@ -166,7 +185,7 @@ def get_site_mag():
             for u in range (-Dn,Dn+1):
                 for d in range (-Dn,Dn+1):
                     index = l+u-r-d
-                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= beta*0.50*(sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
+                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= 0.50*(sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
 
     return out 
 
@@ -178,7 +197,7 @@ if __name__ == "__main__":
     betah=beta*h
     T = get_tensor()
     TI = get_site_mag()
-    print ("Norm", LA.norm(TI))
+    #print ("Norm", LA.norm(TI))
 
     norm = LA.norm(T)
     T /= norm 
@@ -203,30 +222,23 @@ if __name__ == "__main__":
         T = np.einsum("iikl->kl", T)
         TI  = np.einsum("iikl->kl", TI)
 
+        #print ("Alt. mag - 1 ", np.einsum("ii", TI)/np.einsum("ii", T))
+
 
         for i in range (0, Niters):
 
+            
+            TI  = np.dot(TI,T)
             T = np.dot(T,T)
-            TI  = np.dot(TI,TI)
             norm = np.trace(T)
             T /= norm 
-            #TI  /= norm 
-            #print ('TI norms', LA.norm(TI)) 
+            TI /= norm  
 
 
 
-        trT = np.einsum("ii", T)
-        trTI = np.einsum("ii", TI)
-        print ("TI", trTI)
-        print ("T", trT)
-        print ("Alt. mag", trTI/trT)
-        lnZ = np.log(trT) + nc_pure  
+        lnZ = np.log(np.einsum("ii", T)) + nc_pure  
 
-        #trTimpure = np.einsum("ii", TI)
-        #print ("Trace imp.",trTimpure)
-
-
-        print (Temp, -lnZ/(vol*beta))
+        print ("T, f, vol, and M ", Temp, -lnZ/(vol*beta), vol, beta*(np.einsum("ii", TI)/np.einsum("ii", T)))
 
 
 
