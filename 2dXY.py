@@ -113,6 +113,10 @@ def coarse_graining(matrix, in2):
     MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2])) # * 
     MMdag_prime = MMdag_prime.reshape(D**2, D**2) 
 
+    # MMdag_prime = ncon((T,T,T,T),([-1,1,2,3], [-3,1,2,4], [-2,5,3,6], [-4,5,4,6]))
+    # Above line is equivalent to three * marked lines. 
+    # But at least 13 times slower! 
+
     w, U = LA.eigh(MMdag_prime)
     idx = w.argsort()[::-1]
     s1 = w[idx]
@@ -125,7 +129,7 @@ def coarse_graining(matrix, in2):
  
     U = U.reshape(D,D,D)
     T =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
-    TI = ncon((U, T, TI, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
+    TI = ncon((U, TI, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
     val = LA.norm(T) 
 
 
