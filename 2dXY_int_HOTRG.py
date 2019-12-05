@@ -1,7 +1,7 @@
 # Tensor formulation of a classical statistical 2d model
 # This implements the method w/out transfer matrix 
 # by blocking simulatenously along both directions. 
-#
+# 
 
 
 import sys
@@ -27,9 +27,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=17
-D_cut=17
-Niters=8
+D=19
+D_cut=19
+Niters=10
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -47,7 +47,7 @@ if D%2 == 0:
 Dn = int(D/2.0)
 
 startTime = time.time()
-print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+#print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
 A = np.zeros([D])     
@@ -111,8 +111,6 @@ def CG_net(matrix, in2):
 
     T = matrix  
     TI = in2 
-    d = D**2
-
     A = ncon([T,T],[[-2,-3,-4,1],[-1,1,-5,-6]])
     U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut) 
     A = ncon([U,A,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
@@ -121,15 +119,14 @@ def CG_net(matrix, in2):
     B = ncon([U,B,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
     
     AA = ncon([A,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
-    #print ("Shape AA ", np.shape(AA))
-    U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D)  
+    U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D_cut)  
 
     AA = ncon([U,AA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])  
     BA = ncon([B,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
     BA = ncon([U,BA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])  
     
     maxAA = np.max(AA)
-    AA = AA/maxAA #divides over largest value in the tensor
+    AA = AA/maxAA # Normalize by largest element of the tensor
     BA = BA/maxAA
         
     return AA, BA, maxAA
@@ -165,7 +162,7 @@ def get_site_mag():
             for u in range (-Dn,Dn+1):
                 for d in range (-Dn,Dn+1):
                     index = l+u-r-d
-                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= beta*0.50*(sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
+                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= 0.50 * (sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
 
     return out 
 
@@ -184,28 +181,34 @@ if __name__ == "__main__":
 
 
     Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
+    #Z = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
+    #Z = ncon([Z,Z],[[1,2,3,4],[2,1,4,3]])
     C = 0
     N = 1
     C = np.log(norm)+4*C
     f = -Temp*(np.log(Z)+4*C)/(4*N)
-
-    print ("Entering coarse-graining")
 
     for i in range (Niters):
 
         
         T, Tim, norm = CG_net(T, Tim)
         C = np.log(norm)+4*C
-        N *= 4.
+        N *= 4.0
         f = -Temp*(np.log(Z)+4*C)/(4*N)
-        print ("Free energy", f)
-
+        #print ("Free energy -> ", f) 
         if i == Niters-1:
-            Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
+
+            Z1 = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
+            Z = ncon([Z1,Z1],[[1,2,3,4],[2,1,4,3]])
             f = -Temp*(np.log(Z)+4*C)/(4*N)
-            
-        
-    print ("free is", f)
-    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+            P = ncon([Tim,T],[[1,-1,2,-2],[2,-3,1,-4]])
+            P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]])
+
+            r = (P/Z)
+
+               
+    print (Temp,f,r)
+    #print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
