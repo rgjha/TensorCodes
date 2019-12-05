@@ -1,9 +1,7 @@
 # Tensor formulation of a classical statistical 2d model
 # This implements the method w/out transfer matrix 
 # by blocking simulatenously along both directions. 
-# 
-
-
+# Reproduces free energy and magentization from arxiv:1309.04963
 import sys
 import math
 from math import sqrt
@@ -21,8 +19,6 @@ if len(sys.argv) < 3:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>" )
   sys.exit(1)
 
-
-
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
@@ -33,11 +29,8 @@ Niters=10
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
-numlevels = Niters # number of coarse-grainings
+numlevels = Niters
 norm_all = [0 for x in range(numlevels+1)]
-
-# 1.04 -0.5818237291118312 with D=25 and Niters=6
-
 
 if D%2 == 0:
     print ("D must be odd for now")
@@ -210,5 +203,3 @@ if __name__ == "__main__":
                
     print (Temp,f,r)
     #print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-

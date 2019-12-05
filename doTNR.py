@@ -55,7 +55,7 @@ def  doTNR(A,allchi, eigen_tol = 1e-8, maximum_disent_iter = 1000, minimum_iter 
     chiS = min(allchi[1],chiM)
 
     SP1exact = np.trace(qenv)
-    SP1err = abs((SP1exact - np.trace(qtemp.T @ qenv @ qtemp))/SP1exact) 
+    SP1err = abs((SP1exact - np.trace(np.dot(qtemp.T,np.dot(qenv,qtemp))))/SP1exact) 
 
     # SP1err = | [tr(qenv) - tr(qtemp^dagger * qenv * qtemp)]/tr(qenv) | 
 
@@ -81,10 +81,10 @@ def  doTNR(A,allchi, eigen_tol = 1e-8, maximum_disent_iter = 1000, minimum_iter 
     for k in range(maximum_disent_iter):
         sCenvS = ncon([Cdub,q,q,u,y,y],[[-1,-3,7,8],[1,3,7],[4,6,8],[3,6,2,5],[1,2,-2],[4,5,-4]])
         senvS = ncon([sCenvS,s],[[-1,-2,1,2],[1,2]])
-        senvD = ncon([sCenvD,s@ (s.T)],[[-1,-2,1,2],[1,2]])
+        senvD = ncon([sCenvD,np.dot(s,(s.T))],[[-1,-2,1,2],[1,2]])
 
         if k%100 == 0:
-            SP2errnew = abs(1 - (np.trace(senvS @ (s.T))**2) / (np.trace((s.T) @ senvD @ s)*SP2exact))
+            SP2errnew = abs(1 - (np.trace(np.dot(senvS,(s.T))**2)) / (np.trace(np.dot(np.dot((s.T),senvD),s))*SP2exact))
 
             # | 1 - {tr[senvS * (s)^dagger]^2 / tr[s^dagger * senvD * s]* SP2exact |
             if k > 50:
@@ -102,17 +102,19 @@ def  doTNR(A,allchi, eigen_tol = 1e-8, maximum_disent_iter = 1000, minimum_iter 
             #if  display:
             #    print('Iteration: %d of %d, Trunc. Error: %e, %e' % (k,maximum_disent_iter,SP1err,SP2err))
             
-        stemp = LA.pinv(senvD/np.trace(senvD),rcond = eigen_tol) @ senvS
+        stemp = np.dot(LA.pinv(senvD/np.trace(senvD),rcond = eigen_tol),senvS)
         # LA.pinv computes the (Moore-Penrose) pseudo-inverse of a matrix.
         stemp = stemp/LA.norm(stemp)
 
-        Serrold = abs(1-(np.trace(senvS @ (s.T))**2) / (np.trace((s.T) @ senvD @ s)*SP2exact))
+        #Serrold = abs(1-(np.trace(senvS @ (s.T))**2) / (np.trace((s.T) @ senvD @ s)*SP2exact))
+        Serrold = abs(1 - (np.trace(np.dot(senvS,(s.T))**2)) / (np.trace(np.dot(np.dot((s.T),senvD),s))*SP2exact))
 
 
         for p in range(10):
             snew = (1 - 0.1*p)*stemp + 0.1*p*s;
             #print ("SNEW is", snew)
-            Serrnew = abs(1 - (ncon([sCenvS,snew,snew],[[1,2,3,4],[1,2],[3,4]])**2)/(ncon([sCenvD,snew @ (snew.T), snew @ (snew.T)],[[1,2,3,4],[1,2],[3,4]])*SP2exact))
+            # snew @ (snew.T), snew @ (snew.T) = np.dot(snew,snew.T)
+            Serrnew = abs(1 - (ncon([sCenvS,snew,snew],[[1,2,3,4],[1,2],[3,4]])**2)/(ncon([sCenvD,np.dot(snew,snew.T), np.dot(snew,snew.T)],[[1,2,3,4],[1,2],[3,4]])*SP2exact))
             if Serrnew <= Serrold:
                 s= snew/LA.norm(snew)
                 break
@@ -159,7 +161,7 @@ def  doTNR(A,allchi, eigen_tol = 1e-8, maximum_disent_iter = 1000, minimum_iter 
     v = vtemp.reshape(chiHI,chiHI,vtemp.shape[1])
 
     SP3exact = np.trace(venv)
-    SP3err = abs((SP3exact - np.trace(vtemp.T @ venv @ vtemp))/SP3exact)
+    SP3err = abs((SP3exact - np.trace(np.dot(np.dot(vtemp.T,venv),vtemp)))/SP3exact)
 
     # SP3err = | [tr(venv) - tr(vtemp^dagger * venv * vtemp)]/tr(venv) |
     
@@ -182,7 +184,7 @@ def  doTNR(A,allchi, eigen_tol = 1e-8, maximum_disent_iter = 1000, minimum_iter 
     w = wtemp.reshape(chiU,chiU,wtemp.shape[1])
 
     SP4exact = np.trace(wenv)
-    SP4err = abs((SP4exact - np.trace(wtemp.T @ wenv @ wtemp))/SP4exact)
+    SP4err = abs((SP4exact - np.trace(np.dot(np.dot(wtemp.T,wenv),wtemp)))/SP4exact)
 
     # SP4err = | [tr(wenv) - tr(wtemp^dagger * wenv * wtemp)]/tr(wenv) | 
 
@@ -223,7 +225,7 @@ def TensorUpdateSVD(wIn,leftnum):
     # np.prod(wSh) = np.prod(wSh[0:leftnum:1]) * np.prod(wSh[leftnum:len(wSh):1])
     wSh = wIn.shape
     ut,st,vht = LA.svd(wIn.reshape(np.prod(wSh[0:leftnum:1]),np.prod(wSh[leftnum:len(wSh):1])),full_matrices=False)
-    return (ut @ vht).reshape(wSh)
+    return (np.dot(ut,vht)).reshape(wSh)
 
 
 """

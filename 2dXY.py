@@ -39,8 +39,8 @@ beta = float(1.0/Temp)
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=27
-D_cut=27
+D=25
+D_cut=25
 Niters=12
 Ns = int(2**((Niters)))
 Nt = Ns  
@@ -186,7 +186,7 @@ def get_site_mag():
             for u in range (-Dn,Dn+1):
                 for d in range (-Dn,Dn+1):
                     index = l+u-r-d
-                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= beta*0.50*(sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
+                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= 0.50*(sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
 
     return out 
 
@@ -248,16 +248,14 @@ if __name__ == "__main__":
 
         numlevels = int(numlevels/2.0)
 
-        TI /= LA.norm(TI)
-
         ATNR[0] = T 
         ATNRnorm[0] = norm 
-        sXcg[0] = TI 
+        sXcg[0] = TI/norm  
 
         for k in range(numlevels):
             print ("Iteration", int(k+1), "of" , numlevels)
             ATNR[k+1], qC[k], sC[k], uC[k], yC[k], vC[k], wC[k], ATNRnorm[k+1], SPerrs[k,:] = \
-            doTNR(ATNR[k],[chiM,chiS,chiU,chiH,chiV], 1e-8, 1000, 100, True, 0.1)
+            doTNR(ATNR[k],[chiM,chiS,chiU,chiH,chiV], 1e-8, 1000, 100, True, 0.01)
             Tmp = ATNR[k+1] 
             norm = ATNRnorm[k+1]
 
@@ -295,7 +293,7 @@ if __name__ == "__main__":
         upC[0] = ncon([uC[0],gaugeX],[[-1,1,-3,-4],[1,-2]])
         for k in range(1,numlevels):
             uF,sF,vhF = LA.svd(ncon([wC[k-1],wC[k-1]],[[1,2,-1],[2,1,-2]]))
-            gaugeX = uF @ vhF
+            gaugeX = np.dot(uF,vhF)
             upC[k] = ncon([uC[k],gaugeX],[[-1,1,-3,-4],[1,-2]])
 
 
