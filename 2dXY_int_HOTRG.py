@@ -23,9 +23,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=19
-D_cut=19
-Niters=10
+D=13
+D_cut=13
+Niters=1
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -50,37 +50,36 @@ ATNRnorm = [0 for x in range(numlevels+1)];
 sXcg = [0 for x in range(numlevels+1)]; 
 
 
-def tensorsvd(T_input,leftlegs,rightlegs,D='infinity'):
-    '''Reshapes a tensor T_input into a matrix with first index corresponding
-    to leftlegs and second index corresponding to rightlegs. Takes SVD
-    and outputs U, s, V. U and V are reshaped to tensors leftlegs x D and 
-    D x rightlegs respectively.
+def tensorsvd(input,left,right,D):
+    '''Reshape an input tensor into a rectangular matrix with first index corresponding
+    to left set of indices and second index corresponding to right set of indices. Do SVD
+    and then reshape U and V to tensors [left,D] x [D,right]  
     '''
-    T = np.transpose(T_input,leftlegs+rightlegs)
-    xsize = 1
-    leftsize_register = []
-    for i in range(len(leftlegs)):
-        xsize *= T.shape[i]
-        leftsize_register.append(T.shape[i])
-    ysize = 1
-    rightsize_register = []
-    for i in range(len(leftlegs),len(leftlegs)+len(rightlegs)):
-        ysize *= T.shape[i]
-        rightsize_register.append(T.shape[i])
+
+    T = np.transpose(input,left+right)
+    left_index_list = []
+    for i in range(len(left)):
+        left_index_list.append(T.shape[i])
+    xsize = np.prod(left_index_list) 
+    right_index_list = []
+    for i in range(len(left),len(left)+len(right)):
+        right_index_list.append(T.shape[i])
+    ysize = np.prod(right_index_list)
     T = np.reshape(T,(xsize,ysize))
+    
     
     U, s, V = np.linalg.svd(T,full_matrices = False)
     
-    if D != 'infinity' and D < len(s):
+    if D < len(s):
         s = np.diag(s[:D])
         U = U[:,:D]
         V = V[:D,:]
     else:
         D = len(s)
         s = np.diag(s)
-        
-    U = np.reshape(U,leftsize_register+[D])
-    V = np.reshape(V,[D]+rightsize_register)
+
+    U = np.reshape(U,left_index_list+[D])
+    V = np.reshape(V,[D]+right_index_list)
         
         
     return U, s, V
@@ -132,7 +131,8 @@ def get_tensor():
     for i in range (-Dn,Dn+1):
         L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
  
-    out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
+    out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) 
+    # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
     for l in range (-Dn,Dn+1):
         for r in range (-Dn,Dn+1):
             for u in range (-Dn,Dn+1):
@@ -149,7 +149,7 @@ def get_site_mag():
     for i in range (-Dn,Dn+1):
         L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
  
-    out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
+    out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) 
     for l in range (-Dn,Dn+1):
         for r in range (-Dn,Dn+1):
             for u in range (-Dn,Dn+1):
