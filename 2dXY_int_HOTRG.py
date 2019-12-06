@@ -179,7 +179,7 @@ if __name__ == "__main__":
     #Z = ncon([Z,Z],[[1,2,3,4],[2,1,4,3]])
     C = 0
     N = 1
-    C = np.log(norm)+4*C
+    C = np.log(norm)
     f = -Temp*(np.log(Z)+4*C)/(4*N)
 
     for i in range (Niters):
