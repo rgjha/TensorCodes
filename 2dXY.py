@@ -250,7 +250,7 @@ if __name__ == "__main__":
 
         ATNR[0] = T 
         ATNRnorm[0] = norm 
-        sXcg[0] = TI/norm  
+        sXcg[0] = TI
 
         for k in range(numlevels):
             print ("Iteration", int(k+1), "of" , numlevels)
@@ -279,12 +279,6 @@ if __name__ == "__main__":
             FreeEnergy[k-1] = -1.0*(sum((4**np.int64(np.array(range(k,-1,-1))))*np.log(ATNRnorm[:(k+1)]))+ \
             np.log(ncon([ATNR[k],Hgauge,Vgauge],[[1,3,2,4],[1,2],[3,4]])))
 
-
-        for k in range(1,numlevels+1): 
-            Hgauge = ncon([vC[k-1],vC[k-1]],[[1,2,-1],[2,1,-2]])
-            Vgauge = ncon([wC[k-1],wC[k-1]],[[1,2,-1],[2,1,-2]])
-            FreeEnergy[k-1] = -1.0*(sum((4**np.int64(np.array(range(k,-1,-1))))*np.log(ATNRnorm[:(k+1)]))+ \
-            np.log(ncon([ATNR[k],Hgauge,Vgauge],[[1,3,2,4],[1,2],[3,4]])))
 
         ##### Change gauge on disentanglers 'u'
         a = int(np.sqrt(chiM))

@@ -2,6 +2,13 @@
 # This implements the method w/out transfer matrix 
 # by blocking simulatenously along both directions. 
 # Reproduces free energy and magentization from arxiv:1309.04963
+
+# Trying to speed up. Dec 7, 2019
+# STARTED:  2019-12-07 17:59:25
+# 0.96 -0.6199838860832009 0.16877494611490884
+# COMPLETED:  2019-12-07 17:59:44
+# For D=13, Niters=6, h=1e-4
+
 import sys
 import math
 from math import sqrt
@@ -25,7 +32,7 @@ h =  float(sys.argv[2])
 
 D=13
 D_cut=13
-Niters=1
+Niters=6
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -40,7 +47,7 @@ if D%2 == 0:
 Dn = int(D/2.0)
 
 startTime = time.time()
-#print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
 A = np.zeros([D])     
@@ -105,6 +112,13 @@ def CG_net(matrix, in2):
     TI = in2 
     A = ncon([T,T],[[-2,-3,-4,1],[-1,1,-5,-6]])
     U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut) 
+
+    #Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4])) # * 
+    #Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2])) # * 
+    #MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2]))
+    #U, s, V = tensorsvd(MMdag_prime,[0,1],[2,3],D_cut) 
+
+
     A = ncon([U,A,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
     #A = np.einsum("ijk,ijpqrs,rqt->kpts", U, A, U)
     B = ncon([TI,T],[[-2,-3,-4,1],[-1,1,-5,-6]])    
@@ -203,4 +217,4 @@ if __name__ == "__main__":
 
                
     print (Temp,f,r)
-    #print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
