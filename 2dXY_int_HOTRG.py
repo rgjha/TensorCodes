@@ -3,11 +3,7 @@
 # by blocking simulatenously along both directions. 
 # Reproduces free energy and magentization from arxiv:1309.04963
 
-# Trying to speed up. Dec 7, 2019
-# STARTED:  2019-12-07 17:59:25
-# 0.96 -0.6199838860832009 0.16877494611490884
-# COMPLETED:  2019-12-07 17:59:44
-# For D=13, Niters=6, h=1e-4
+# Speedup 7x by feeding square matrix for SVD not rectangular : Dec 7, 2019 
 
 import sys
 import math
@@ -30,8 +26,8 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=13
-D_cut=13
+D=15
+D_cut=15
 Niters=6
 Ns = int(2**((Niters)))
 Nt = Ns  
@@ -111,12 +107,13 @@ def CG_net(matrix, in2):
     T = matrix  
     TI = in2 
     A = ncon([T,T],[[-2,-3,-4,1],[-1,1,-5,-6]])
-    U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut) 
 
-    #Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4])) # * 
-    #Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2])) # * 
-    #MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2]))
-    #U, s, V = tensorsvd(MMdag_prime,[0,1],[2,3],D_cut) 
+
+    U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut)
+
+    # Alternative (faster by at least 7x): 
+    #AAdag = ncon([A,A],[[-1,-2,1,2,3,4],[-3,-4,1,2,3,4]])
+    #U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut) 
 
 
     A = ncon([U,A,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
@@ -125,7 +122,13 @@ def CG_net(matrix, in2):
     B = ncon([U,B,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
     
     AA = ncon([A,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
-    U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D_cut)  
+     
+
+    U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D_cut)
+    # Alternative (faster):
+    #AAAAdag = ncon([AA,AA],[[1,-1,-2,2,3,4],[1,-3,-4,2,3,4]])
+    #U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut) 
+    
 
     AA = ncon([U,AA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])  
     BA = ncon([B,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
