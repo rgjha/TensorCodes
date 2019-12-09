@@ -26,8 +26,8 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=21
-D_cut=21
+D=17
+D_cut=17
 Niters=20
 Ns = int(2**((Niters)))
 Nt = Ns  
@@ -210,9 +210,9 @@ if __name__ == "__main__":
         if i == Niters-1:
 
             
-            N = (np.einsum('ruru',T))**2
-            Y = N/np.einsum('rulu, ldrd',T, T)
-            X = N/np.einsum('ruld, ldru',T, T)     # Refs. 0903.1069 and 1706.03455
+            NUM = (np.einsum('ruru',T))**2
+            Y1 = NUM/np.einsum('rulu, ldrd',T, T)
+            X1 = NUM/np.einsum('ruld, ldru',T, T)     # Refs. 0903.1069 and 1706.03455
             #print ("FP value, ", X, Y)
 
             Z1 = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
@@ -228,5 +228,5 @@ if __name__ == "__main__":
     f=open("mag_data.txt", "a+")    
     f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \n" % (Temp, Free, r, Niters, D_cut)) 
     f.close()         
-    print (Temp,h,Free,r, Y,X)
+    print (Temp,h,Free,r, X1, Y1)
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
