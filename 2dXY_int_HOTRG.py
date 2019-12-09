@@ -26,9 +26,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=15
-D_cut=15
-Niters=6
+D=21
+D_cut=21
+Niters=20
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -109,11 +109,11 @@ def CG_net(matrix, in2):
     A = ncon([T,T],[[-2,-3,-4,1],[-1,1,-5,-6]])
 
 
-    U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut)
+    #U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut)
 
-    # Alternative (faster by at least 7x): 
-    #AAdag = ncon([A,A],[[-1,-2,1,2,3,4],[-3,-4,1,2,3,4]])
-    #U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut) 
+    # Alternative (faster by ~ 7x): 
+    AAdag = ncon([A,A],[[-1,-2,1,2,3,4],[-3,-4,1,2,3,4]])
+    U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut) 
 
 
     A = ncon([U,A,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
@@ -124,10 +124,10 @@ def CG_net(matrix, in2):
     AA = ncon([A,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
      
 
-    U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D_cut)
+    #U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D_cut)
     # Alternative (faster):
-    #AAAAdag = ncon([AA,AA],[[1,-1,-2,2,3,4],[1,-3,-4,2,3,4]])
-    #U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut) 
+    AAAAdag = ncon([AA,AA],[[1,-1,-2,2,3,4],[1,-3,-4,2,3,4]])
+    U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut) 
     
 
     AA = ncon([U,AA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])  
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     C = 0
     N = 1
     C = np.log(norm)
-    f = -Temp*(np.log(Z)+4*C)/(4*N)
+    Free = -Temp*(np.log(Z)+4*C)/(4*N)
 
     for i in range (Niters):
 
@@ -205,13 +205,19 @@ if __name__ == "__main__":
         T, Tim, norm = CG_net(T, Tim)
         C = np.log(norm)+4*C
         N *= 4.0
-        f = -Temp*(np.log(Z)+4*C)/(4*N)
+        Free = -Temp*(np.log(Z)+4*C)/(4*N)
         #print ("Free energy -> ", f) 
         if i == Niters-1:
 
+            
+            N = (np.einsum('ruru',T))**2
+            Y = N/np.einsum('rulu, ldrd',T, T)
+            X = N/np.einsum('ruld, ldru',T, T)     # Refs. 0903.1069 and 1706.03455
+            #print ("FP value, ", X, Y)
+
             Z1 = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
             Z = ncon([Z1,Z1],[[1,2,3,4],[2,1,4,3]])
-            f = -Temp*(np.log(Z)+4*C)/(4*N)
+            Free = -Temp*(np.log(Z)+4*C)/(4*N)
 
             P = ncon([Tim,T],[[1,-1,2,-2],[2,-3,1,-4]])
             P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]])
@@ -219,5 +225,8 @@ if __name__ == "__main__":
             r = (P/Z)
 
                
-    print (Temp,f,r)
+    f=open("mag_data.txt", "a+")    
+    f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \n" % (Temp, Free, r, Niters, D_cut)) 
+    f.close()         
+    print (Temp,h,Free,r, Y,X)
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
