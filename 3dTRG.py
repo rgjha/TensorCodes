@@ -1,6 +1,9 @@
 # Tensor formulation of some 3d model
 # Started: Dec 5, 2019
 
+# Free energy at T= 4.5115 is -3.51
+# Ref: https://arxiv.org/abs/1912.02414
+
 import sys
 import math
 from math import sqrt
