@@ -10,6 +10,10 @@ from scipy import special
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
+from sklearn.decomposition import TruncatedSVD
+from scipy.sparse import random as sparse_random
+from sklearn.random_projection import sparse_random_matrix
+from sklearn.utils.extmath import randomized_svd
 import time
 import datetime 
 from ncon import ncon
@@ -25,7 +29,7 @@ Temp =  float(sys.argv[1])
 h =  float(sys.argv[2])
 beta = float(1.0/Temp)
 Niter=2
-D=5
+D=4
 
 
 def tensorsvd(input,left,right,D):
@@ -47,6 +51,7 @@ def tensorsvd(input,left,right,D):
     
     
     U, s, V = np.linalg.svd(T,full_matrices = False)
+    #U, s, V = randomized_svd(T, n_components=D+10, n_iter=10,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
