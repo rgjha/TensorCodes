@@ -39,9 +39,9 @@ beta = float(1.0/Temp)
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=25
-D_cut=25
-Niters=12
+D=41
+D_cut=41
+Niters=6
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -130,9 +130,9 @@ def coarse_graining(matrix, in2):
         U = U[:,:D_cut]  
  
     U = U.reshape(D,D,D)
-    T =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
+    AA =  ncon((U, T, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
     #TI = ncon((U, TI, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
-    val = LA.norm(T) 
+    norm = np.max(AA) 
 
     '''
     Za = ncon((TI, matrix),([-1,1,2,-2], [-3,1,2,-4])) 
@@ -151,9 +151,12 @@ def coarse_graining(matrix, in2):
  
     U = U.reshape(D,D,D)
     '''
-    TI =  ncon((U, TI, matrix, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
+    BB =  ncon((U, TI, T, U),([1,2,-1], [1,3,-3,4], [2,5,4,-4], [3,5,-2]))
 
-    return T, TI, val 
+    AA = AA/norm 
+    BB = BB/norm 
+
+    return AA, BB, norm
 
 
 
@@ -198,7 +201,6 @@ if __name__ == "__main__":
     betah=beta*h
     T = get_tensor()
     TI = get_site_mag()
-    #print ("Norm", LA.norm(TI))
 
     norm = LA.norm(T)
     T /= norm 
@@ -214,16 +216,15 @@ if __name__ == "__main__":
 
             T, TI, norm = coarse_graining(T, TI) 
             count += 1  
-            T /= norm 
-            TI /= norm 
-            
+            #T /= norm 
+            #TI /= norm 
             nc_pure += (2**((2*numlevels)-count)) * np.log(norm)
  
 
         T = np.einsum("iikl->kl", T)
         TI  = np.einsum("iikl->kl", TI)
 
-        #print ("Alt. mag - 1 ", np.einsum("ii", TI)/np.einsum("ii", T))
+        print ("Alt. mag - 1 ", np.einsum("ii", TI)/np.einsum("ii", T))
 
 
         for i in range (0, Niters):
@@ -231,7 +232,7 @@ if __name__ == "__main__":
             
             TI  = np.dot(T, TI)
             T = np.dot(T,T)
-            norm = np.trace(T)
+            norm = np.max(T)
             T /= norm 
             TI /= norm  
 
