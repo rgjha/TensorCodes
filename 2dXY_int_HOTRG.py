@@ -116,44 +116,17 @@ def CG_net(matrix, in2):
     T = matrix  
     TI = in2 
 
-
-    #U, s, V = tensorsvd(A,[0,1],[2,3,4,5],D_cut)
-
-    # Alternative (faster by ~ 7x): 
-    #AAdag = ncon([A,A],[[-1,-2,1,2,3,4],[-3,-4,1,2,3,4]])
     AAdag = ncon([T,T,T,T],[[-2,1,2,5],[-1,5,3,4],[-4,1,2,6],[-3,6,3,4]])
-
     U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut) 
-
-    #A = ncon([T,T],[[-2,-3,-4,1],[-1,1,-5,-6]])
-    #A = ncon([U,A,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]]) # np.einsum("ijk,ijpqrs,rqt->kpts", U, A, U)
-    # Above is same but little slower since it needs initial 'A' as well 
     A = ncon([U,T,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
-
-
-    #B = ncon([TI,T],[[-2,-3,-4,1],[-1,1,-5,-6]])    
-    #B = ncon([U,B,U],[[1,2,-1],[1,2,-2,3,4,-4],[4,3,-3]])
-
     B = ncon([U,TI,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
-
-
-    #AAAAdag = ncon([A,A,A,A],[[1,-1,2,3],[2,-2,4,5],[1,-3,6,3],[6,-4,4,5]])
-     
-
-    #U, s, V = tensorsvd(AA,[1,2],[0,3,4,5],D_cut)
-    # Alternative (faster):
 
     AA = ncon([A,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
     AAAAdag = ncon([AA,AA],[[1,-1,-2,2,3,4],[1,-3,-4,2,3,4]])
     U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut) 
-    
-
-    AA = ncon([U,AA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])  
-    #BA = ncon([B,A],[[-1,-2,1,-6],[1,-3,-4,-5]])
-    #BA = ncon([U,BA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])  
-
+    AA = ncon([U,AA,U],[[1,2,-2],[-1,1,2,-3,4,3],[3,4,-4]])   
     BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,4,3],[4,2,-3,5],[3,5,-4]])  
-    
+
     maxAA = np.max(AA)
     AA = AA/maxAA # Normalize by largest element of the tensor
     BA = BA/maxAA
