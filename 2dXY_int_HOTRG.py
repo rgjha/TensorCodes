@@ -4,6 +4,8 @@
 # Reproduces free energy and magentization from arxiv:1309.04963
 
 # Speedup 7x by feeding square matrix for SVD not rectangular : Dec 7, 2019 
+# D=33 with Niter=23 takes ~ 100 minutes 
+# D=31 with Niter=23 takes ~  60 minutes
 
 import sys
 import math
@@ -11,6 +13,7 @@ from math import sqrt
 import numpy as np
 import scipy as sp  
 from scipy import special
+from scipy import linalg as LASP
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
@@ -30,9 +33,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=21
-D_cut=21
-Niters=5
+D=27
+D_cut=27
+Niters=3
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -54,7 +57,6 @@ A = np.zeros([D])
 L = np.zeros([D])              
 ATNR = [0 for x in range(numlevels+1)];
 ATNRnorm = [0 for x in range(numlevels+1)]; 
-sXcg = [0 for x in range(numlevels+1)]; 
 
 
 def tensorsvd(input,left,right,D):
@@ -75,12 +77,19 @@ def tensorsvd(input,left,right,D):
     T = np.reshape(T,(xsize,ysize))
     
     
-    U, s, V = np.linalg.svd(T,full_matrices = False)
+    U, s, V = np.linalg.svd(T,full_matrices = False) # 33 sec / 3m 20 s
+    #U, s, V = LASP.svd(T) # 34 sec
+
+    #w, U = LA.eigh(T)   # 36 sec 
+    #idx = w.argsort()[::-1]
+    #s = w[idx]
+    #U = U[:,idx]
+    #V = U.T
 
     #X = sparse_random(100, 100, density=0.01, format='csr', random_state=42)
     #svd = TruncatedSVD(n_components=5, n_iter=7, random_state=42)
     #svd.fit(X)
-    #U, s, V = randomized_svd(T, n_components=D+10, n_iter=10,random_state=None)
+    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)   # 29 sec / 3m 49s 
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -111,7 +120,7 @@ def dagger(a):
     return np.transpose(a).conj()
 ##############################
 
-def CG_net(matrix, in2):
+def CG_step(matrix, in2):
 
     T = matrix  
     TI = in2 
@@ -192,17 +201,17 @@ if __name__ == "__main__":
     for i in range (Niters):
 
         
-        T, Tim, norm = CG_net(T, Tim)
+        T, Tim, norm = CG_step(T, Tim)
         C = np.log(norm)+4*C
         N *= 4.0
         Free = -Temp*(np.log(Z)+4*C)/(4*N)
-        #print ("Free energy -> ", f) 
+        print ("Free energy -> ", Free) 
         if i == Niters-1:
 
             
-            NUM = (np.einsum('ruru',T))**2
-            Y1 = NUM/np.einsum('rulu, ldrd',T, T)
-            X1 = NUM/np.einsum('ruld, ldru',T, T)     # Refs. 0903.1069 and 1706.03455
+            #NUM = (np.einsum('ruru',T))**2
+            #Y1 = NUM/np.einsum('rulu, ldrd',T, T)
+            #X1 = NUM/np.einsum('ruld, ldru',T, T)     # Refs. 0903.1069 and 1706.03455
             #print ("FP value, ", X, Y)
 
             Z1 = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
@@ -213,10 +222,12 @@ if __name__ == "__main__":
             P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]])
 
             r = (P/Z)
+            print ("Mag. -> ", r)
 
                
     f=open("mag_data.txt", "a+")    
-    f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \n" % (Temp, Free, r, Niters, D_cut)) 
+    f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \t %4.10f \n" % (Temp, Free, r, Niters, D_cut, h)) 
     f.close()         
-    print (Temp,h,Free,r, X1, Y1)
+    #print (Temp,h,Free,r, X1, Y1)
+    print (Temp,h,Free,r)
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
