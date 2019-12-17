@@ -31,7 +31,8 @@ if len(sys.argv) < 2:
 Temp =  float(sys.argv[1])
 #h =  float(sys.argv[2])
 beta = float(1.0/Temp)
-Niter=7
+BETAAA = float(sys.argv[1])
+Niter=6
 D=5
 
 
@@ -71,7 +72,7 @@ def tensorsvd(input,left,right,D):
     return U, s, V
 
 
-def Z3d():
+def Z3d_Ising():
 
     a = np.sqrt(np.cosh(beta))
     b = np.sqrt(np.sinh(beta)) 
@@ -80,21 +81,34 @@ def Z3d():
     return out
 
 
+def Z3d_U1():
+
+    A = np.zeros([7, 7]) 
+
+    for i in range (7):
+        for j in range (7):
+            A[i][j] = sp.special.iv(i-j, BETAAA)
+
+    L = LA.cholesky(A) 
+    out = np.einsum("ia, ib, ic, id, ie, if -> abcdef", L, L, L, L, L, L)
+    return out
+
+
 
 def coarse_graining(input,impure=False):
     
     # Z-direction
 
-    A = ncon([input,input],[[-1,-3,-5,-7,1,-10],[-2,-4,-6,-8,-9,1]])
-    Ux, s, V = tensorsvd(A,[2,3],[0,1,4,5,6,7,8,9],D)
-    Uy, s, V = tensorsvd(A,[0,1],[2,3,4,5,6,7,8,9],D)
-    A = ncon([Ux,Uy,A,Uy,Ux],[[3,4,-2],[1,2,-1],[1,2,3,4,5,6,7,8,-5,-6],[5,6,-3],[7,8,-4]])
+    #A = ncon([input,input],[[-1,-3,-5,-7,1,-10],[-2,-4,-6,-8,-9,1]])
+    #Ux, s, V = tensorsvd(A,[2,3],[0,1,4,5,6,7,8,9],D)
+    #Uy, s, V = tensorsvd(A,[0,1],[2,3,4,5,6,7,8,9],D)
+    #A = ncon([Ux,Uy,A,Uy,Ux],[[3,4,-2],[1,2,-1],[1,2,3,4,5,6,7,8,-5,-6],[5,6,-3],[7,8,-4]])
     
 
-    #A = ncon([input,input,input,input],[[-1,5,-5,2,1,3],[-2,6,-6,2,4,1],[-3,5,-7,8,7,3],[-4,6,-8,8,4,7]])
-    #Ux, s, V = tensorsvd(A,[2,3],[0,1,4,5,6,7],D)
-    #Uy, s, V = tensorsvd(A,[0,1],[2,3,4,5,6,7],D)
-    #A = ncon([Ux,Uy,input,input,Uy,Ux],[[3,4,-2],[1,2,-1],[1,3,5,7,10,-6],[2,4,6,8,-5,10],[5,6,-3],[7,8,-4]])
+    A = ncon([input,input,input,input],[[-1,5,-5,2,1,3],[-2,6,-6,2,4,1],[-3,5,-7,8,7,3],[-4,6,-8,8,4,7]])
+    Ux, s, V = tensorsvd(A,[2,3],[0,1,4,5,6,7],D)
+    Uy, s, V = tensorsvd(A,[0,1],[2,3,4,5,6,7],D)
+    A = ncon([Ux,Uy,input,input,Uy,Ux],[[3,4,-2],[1,2,-1],[1,3,5,7,10,-6],[2,4,6,8,-5,10],[5,6,-3],[7,8,-4]])
 
     if impure:
         B = ncon([b,input],[[-1,-3,-5,-7,1,-10],[-2,-4,-6,-8,-9,1]])    
@@ -146,7 +160,8 @@ if __name__ == "__main__":
 
 
 
-    T = Z3d()   # Get the initial tensor 
+    #T = Z3d_Ising()   # Get the initial tensor 
+    T = Z3d_U1() 
     #norm = LA.norm(T)
     norm = np.max(T)
     T /= norm
@@ -154,7 +169,8 @@ if __name__ == "__main__":
     Z = ncon([M1, M1],[[1,2,3,4,5,6,7,8], [2,1,4,3,6,5,8,7]])
     N = 1
     C = np.log(norm)
-    f = -Temp*(np.log(Z)+6*C)/(6)
+    #f = -Temp*(np.log(Z)+6*C)/(6)
+    f = -(np.log(Z)+6*C)/(6)
 
 
     for i in range(Niter):
@@ -163,17 +179,20 @@ if __name__ == "__main__":
         T, TI, norm = coarse_graining(T, False)
         C = np.log(norm)+6*C 
         N *= 6
-        f = -Temp*(np.log(Z)+6*C)/(6*N)
+        #f = -Temp*(np.log(Z)+6*C)/(6*N)
+        f = -(np.log(Z)+6*C)/(6*N)
         print ("Free energy ", f)
 
 
         if i == Niter-1:
 
             Z = final_step(T, False)
-            f = -Temp*(np.log(Z)+6*C)/(6*N)
+            #f = -Temp*(np.log(Z)+6*C)/(6*N)
+            f = -(np.log(Z)+6*C)/(6*N)
 
 
-    print ("Free energy is ", f, " at T= ", Temp)
+    #print ("Free energy is ", f, " at T= ", Temp)
+    print ("Free energy is ", f*BETAAA, " at beta= ", BETAAA)
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
