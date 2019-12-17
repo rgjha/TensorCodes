@@ -24,14 +24,14 @@ from ncon import ncon
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
-if len(sys.argv) < 3:
-  print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h> ")
+if len(sys.argv) < 2:
+  print("Usage:", str(sys.argv[0]), "<Temperature, T>")
   sys.exit(1)
 
 Temp =  float(sys.argv[1])
-h =  float(sys.argv[2])
+#h =  float(sys.argv[2])
 beta = float(1.0/Temp)
-Niter=4
+Niter=7
 D=5
 
 
@@ -54,7 +54,7 @@ def tensorsvd(input,left,right,D):
     
     
     U, s, V = np.linalg.svd(T,full_matrices = False)
-    #U, s, V = randomized_svd(T, n_components=D, n_iter=5,random_state=None)
+    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -72,14 +72,11 @@ def tensorsvd(input,left,right,D):
 
 
 def Z3d():
-    local_ham = np.array([[-1.0-h,1.0],[1.0,-1.0+h]])
-    W = np.exp(-beta*local_ham)
-    g = np.zeros((2,2,2,2,2,2))
-    g[0,0,0,0,0,0] = 1.0
-    g[1,1,1,1,1,1] = -1.0
-    Wsr = sp.linalg.sqrtm(W)
-    out = ncon([g,Wsr,Wsr,Wsr,Wsr,Wsr,Wsr],[[1,2,3,4,5,6],[-1,1],[-2,2],[3,-3],[4,-4],[-5,5],[6,-6]])
-   
+
+    a = np.sqrt(np.cosh(beta))
+    b = np.sqrt(np.sinh(beta)) 
+    W = np.array([[a,b],[a,-b]])
+    out = np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
     return out
 
 
@@ -87,18 +84,17 @@ def Z3d():
 def coarse_graining(input,impure=False):
     
     # Z-direction
+
     A = ncon([input,input],[[-1,-3,-5,-7,1,-10],[-2,-4,-6,-8,-9,1]])
-
-
-    #Tmp = ncon([input,input],[[-1,-3,1,2,3,4],[-2,-4,1,2,3,4]])    
-    #Ux, s, Uy = tensorsvd(Tmp,[0,2],[1,3],D)
-    #Uy = Uy.T
-
     Ux, s, V = tensorsvd(A,[2,3],[0,1,4,5,6,7,8,9],D)
     Uy, s, V = tensorsvd(A,[0,1],[2,3,4,5,6,7,8,9],D)
     A = ncon([Ux,Uy,A,Uy,Ux],[[3,4,-2],[1,2,-1],[1,2,3,4,5,6,7,8,-5,-6],[5,6,-3],[7,8,-4]])
+    
 
-
+    #A = ncon([input,input,input,input],[[-1,5,-5,2,1,3],[-2,6,-6,2,4,1],[-3,5,-7,8,7,3],[-4,6,-8,8,4,7]])
+    #Ux, s, V = tensorsvd(A,[2,3],[0,1,4,5,6,7],D)
+    #Uy, s, V = tensorsvd(A,[0,1],[2,3,4,5,6,7],D)
+    #A = ncon([Ux,Uy,input,input,Uy,Ux],[[3,4,-2],[1,2,-1],[1,3,5,7,10,-6],[2,4,6,8,-5,10],[5,6,-3],[7,8,-4]])
 
     if impure:
         B = ncon([b,input],[[-1,-3,-5,-7,1,-10],[-2,-4,-6,-8,-9,1]])    
@@ -109,14 +105,12 @@ def coarse_graining(input,impure=False):
     AA = ncon([A,A],[[-1,-2,1,-6,-7,-8],[1,-3,-4,-5,-9,-10]])
     Uz, s, V  = tensorsvd(AA,[6,8],[0,1,2,3,4,5,7,9],D)
     Ux, s, V  = tensorsvd(AA,[1,2],[0,3,4,5,6,7,8,9],D) 
-    #print ("CHECK:", np.allclose(Uz,Ux))
     AA = ncon([Uz,Ux,AA,Ux,Uz],[[5,7,-5],[1,2,-2],[-1,1,2,-3,3,4,5,6,7,8],[4,3,-4],[6,8,-6]])  
     if impure:
         BA = ncon([B,A],[[-1,-2,1,-6,-7,-8],[1,-3,-4,-5,-9,-10]])
         BA = ncon([Uz,Ux,BA,Ux,Uz],[[5,7,-5],[1,2,-2],[-1,1,2,-3,3,4,5,6,7,8],[4,3,-4],[6,8,-6]])
     
     # X-direction
-    
     AAAA = ncon([AA,AA],[[-2,-3,-4,1,-7,-8],[-1,1,-5,-6,-9,-10]])
     Uz, s, V  = tensorsvd(AAAA,[6,8],[0,1,2,3,4,5,7,9],D)
     Uy, s, V  = tensorsvd(AAAA,[3,4],[0,1,2,5,6,7,8,9],D)
@@ -125,6 +119,7 @@ def coarse_graining(input,impure=False):
         BAAA = ncon([BA,AA],[[-2,-3,-4,1,-7,-8],[-1,1,-5,-6,-9,-10]])
         BAAA = ncon([Uz,Uy,BAAA,Uy,Uz],[[5,7,-5],[3,4,-3],[1,2,-2,3,4,-4,5,6,7,8],[2,1,-1],[6,8,-6]])
     
+    #maxAAAA = LA.norm(AAAA)
     maxAAAA = np.max(AAAA)
 
     AAAA = AAAA/maxAAAA # Normalize by largest element of the tensor
@@ -152,7 +147,8 @@ if __name__ == "__main__":
 
 
     T = Z3d()   # Get the initial tensor 
-    norm = LA.norm(T)
+    #norm = LA.norm(T)
+    norm = np.max(T)
     T /= norm
     M1 = ncon([T,T,T,T],[[1,2,3,4,-1,-2],[3,5,1,6,-3,-4],[8,4,7,2,-5,-6],[7,6,8,5,-7,-8]])
     Z = ncon([M1, M1],[[1,2,3,4,5,6,7,8], [2,1,4,3,6,5,8,7]])
@@ -167,8 +163,6 @@ if __name__ == "__main__":
         T, TI, norm = coarse_graining(T, False)
         C = np.log(norm)+6*C 
         N *= 6
-        #Z = ncon([a,a,a,a],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
-        #Z = final_contraction(dim,a)[0]
         f = -Temp*(np.log(Z)+6*C)/(6*N)
         print ("Free energy ", f)
 

@@ -39,9 +39,9 @@ beta = float(1.0/Temp)
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=41
-D_cut=41
-Niters=6
+D=25
+D_cut=25
+Niters=12
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -58,10 +58,10 @@ Dn = int(D/2.0)
 
 ##### Set bond dimensions and options
 chiM = 25
-chiS = 25
-chiU = 25
-chiH = 25      
-chiV = 25
+chiS = chiM 
+chiU = chiM 
+chiH = chiM      
+chiV = chiM 
 #Increasing these makes it more accurate!        
 
 
@@ -197,6 +197,8 @@ def get_site_mag():
 
 if __name__ == "__main__":
 
+
+
  
     betah=beta*h
     T = get_tensor()
@@ -247,11 +249,13 @@ if __name__ == "__main__":
 
     if flag == 1: 
 
+
         numlevels = int(numlevels/2.0)
+
 
         ATNR[0] = T 
         ATNRnorm[0] = norm 
-        sXcg[0] = TI
+        sXcg[0] = TI/norm 
 
         for k in range(numlevels):
             print ("Iteration", int(k+1), "of" , numlevels)
@@ -296,6 +300,8 @@ if __name__ == "__main__":
         for k in range(numlevels):
             sXcg[k+1] = ncon([sXcg[k],upC[k],upC[k],wC[k],wC[k],wC[k],wC[k]],\
             [[3,4,1,2],[1,2,6,9],[3,4,7,10],[5,6,-1],[9,8,-2],[5,7,-3],[10,8,-4]])
+            #sXcg[k+1] /= ATNRnorm[k+1]
+
     
         dtemp = LA.eigvalsh(sXcg[numlevels].reshape((sXcg[numlevels].shape[0])**2,(sXcg[numlevels].shape[2])**2))
         ExpectX = max(abs(dtemp))
