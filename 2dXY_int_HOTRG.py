@@ -5,7 +5,13 @@
 
 # Speedup 7x by feeding square matrix for SVD not rectangular : Dec 7, 2019 
 # D=33 with Niter=23 takes ~ 100 minutes 
-# D=31 with Niter=23 takes ~  60 minutes
+# D=31 with Niter=23 takes ~  60 minutes 
+# D=41 with Niter=27 takes ~  9 hours 
+# D=43 with Niter=30 takes ~  14.5 hours
+# D=45 with Niter=25 takes ~  17.5 hours
+# D=47 with Niter=24 takes ~  23.5 hours # Randomized SVD gives same answer in 21.5 hours 
+
+# These timings are on Symmetry machine at PI. 
 
 import sys
 import math
@@ -13,7 +19,6 @@ from math import sqrt
 import numpy as np
 import scipy as sp  
 from scipy import special
-from scipy import linalg as LASP
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
@@ -33,9 +38,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=27
-D_cut=27
-Niters=3
+D=21
+D_cut=21
+Niters=6
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2
@@ -56,7 +61,7 @@ print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 A = np.zeros([D])     
 L = np.zeros([D])              
 ATNR = [0 for x in range(numlevels+1)];
-ATNRnorm = [0 for x in range(numlevels+1)]; 
+ATNRnorm = [0 for x in range(numlevels+1)];  
 
 
 def tensorsvd(input,left,right,D):
@@ -77,19 +82,12 @@ def tensorsvd(input,left,right,D):
     T = np.reshape(T,(xsize,ysize))
     
     
-    U, s, V = np.linalg.svd(T,full_matrices = False) # 33 sec / 3m 20 s
-    #U, s, V = LASP.svd(T) # 34 sec
-
-    #w, U = LA.eigh(T)   # 36 sec 
-    #idx = w.argsort()[::-1]
-    #s = w[idx]
-    #U = U[:,idx]
-    #V = U.T
+    U, s, V = np.linalg.svd(T,full_matrices = False)
 
     #X = sparse_random(100, 100, density=0.01, format='csr', random_state=42)
     #svd = TruncatedSVD(n_components=5, n_iter=7, random_state=42)
     #svd.fit(X)
-    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)   # 29 sec / 3m 49s 
+    #U, s, V = randomized_svd(T, n_components=D+10, n_iter=10,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -134,6 +132,8 @@ def CG_step(matrix, in2):
     U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut)  
     AA = ncon([U,A,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]])
     BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,4,3],[4,2,-3,5],[3,5,-4]])  
+
+    # U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
 
     maxAA = np.max(AA)
     AA = AA/maxAA # Normalize by largest element of the tensor
