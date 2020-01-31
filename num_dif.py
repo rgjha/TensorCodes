@@ -34,5 +34,5 @@ d2ydx2 = np.gradient(dydx, dx)
 
 # Print the out array to a file for plotting 
 with open('output.dat', 'w') as f:
-    for item in d2ydx2:
+    for item in dydx:
         f.write("%s\n" % item)

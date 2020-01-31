@@ -21,7 +21,7 @@ import datetime
 from ncon import ncon
 
 startTime = time.time()
-print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+#print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 if len(sys.argv) < 2:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>")
@@ -53,8 +53,8 @@ def tensorsvd(input,left,right,D):
     T = np.reshape(T,(xsize,ysize))
     
     
-    U, s, V = np.linalg.svd(T,full_matrices = False)
-    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
+    #U, s, V = np.linalg.svd(T,full_matrices = False)
+    U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -161,8 +161,8 @@ if __name__ == "__main__":
 
 
 
-    T = Z3d_Ising()   # Get the initial tensor 
-    #T = Z3d_U1() 
+    T = Z3d_Ising()   # Get the initial tensor for 3d Ising 
+    #T = Z3d_U1()  # Get the initial tensor for U(1) 
     norm = np.max(T)
     T /= norm
     M1 = ncon([T,T,T,T],[[1,2,3,4,-1,-2],[3,5,1,6,-3,-4],[8,4,7,2,-5,-6],[7,6,8,5,-7,-8]])
@@ -175,13 +175,13 @@ if __name__ == "__main__":
 
     for i in range(Niter):
 
-        print ("Coarse graining, step ", i+1)
+        #print ("Coarse graining, step ", i+1)
         T, TI, norm = coarse_graining(T, False)
         C = np.log(norm)+6*C 
-        N *= 6
+        N *= 6  # 3d has six open legs 
         f = -Temp*(np.log(Z)+6*C)/(6*N)
         #f = -(np.log(Z)+6*C)/(6*N)
-        print ("Free energy ", f)
+        #print ("Free energy ", f)
 
 
         if i == Niter-1:
@@ -191,9 +191,10 @@ if __name__ == "__main__":
             #f = -(np.log(Z)+6*C)/(6*N)
 
 
-    print ("Free energy is ", f, " at T= ", Temp)
+    #print ("Free energy is ", f, " at T= ", Temp)
+    print (Temp, f)
     #print ("Free energy is ", f*BETAAA, " at beta= ", BETAAA)
-    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    #print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
             
