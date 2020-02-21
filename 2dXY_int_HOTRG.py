@@ -1,17 +1,10 @@
 # Tensor formulation of a classical statistical 2d model
-# This implements the method w/out transfer matrix 
-# by blocking simulatenously along both directions. 
+# This proceeds by blocking simulatenously along both directions. 
 # Reproduces free energy and magentization from arxiv:1309.04963
 
 # Speedup 7x by feeding square matrix for SVD not rectangular : Dec 7, 2019 
-# D=33 with Niter=23 takes ~ 100 minutes 
-# D=31 with Niter=23 takes ~  60 minutes 
-# D=41 with Niter=27 takes ~  9 hours 
-# D=43 with Niter=30 takes ~  14.5 hours
-# D=45 with Niter=25 takes ~  17.5 hours
-# D=47 with Niter=24 takes ~  23.5 hours # Randomized SVD gives same answer in 21.5 hours 
-
-# These timings are on Symmetry machine at PI. 
+# D=47 with Niter=30 takes ~  2.5 hours with SVD (The timing is on Symmetry machine at PI)
+# Randomized SVD behaves badly for small 'h'! 
 
 import sys
 import math
@@ -38,12 +31,12 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 
-D=21
-D_cut=21
-Niters=6
+D=47
+D_cut=47 
+Niters=30
 Ns = int(2**((Niters)))
 Nt = Ns  
-vol = Ns**2
+vol = Ns**2   
 numlevels = Niters
 norm_all = [0 for x in range(numlevels+1)]
 
@@ -59,9 +52,7 @@ print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 A = np.zeros([D])     
-L = np.zeros([D])              
-ATNR = [0 for x in range(numlevels+1)];
-ATNRnorm = [0 for x in range(numlevels+1)];  
+L = np.zeros([D])               
 
 
 def tensorsvd(input,left,right,D):
