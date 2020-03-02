@@ -122,7 +122,10 @@ def CG_step(matrix, in2):
     AAAAdag = ncon([A,A,A,A],[[1,-1,2,3],[2,-2,4,5],[1,-3,6,3],[6,-4,4,5]])
     U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut)  
     AA = ncon([U,A,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]])
-    BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,4,3],[4,2,-3,5],[3,5,-4]])  
+    #BA2 = ncon([U,B,A,U],[[1,2,-2],[-1,1,4,3],[4,2,-3,5],[3,5,-4]]) 
+    BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]]) 
+    #print ("Are they same? ", np.allclose(BA, BA2))
+    # Small typo which makes no difference [see above]: 2 March, 2020
 
     # U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
 
