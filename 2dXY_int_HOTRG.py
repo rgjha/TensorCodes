@@ -2,9 +2,8 @@
 # This proceeds by blocking simulatenously along both directions. 
 # Reproduces free energy and magentization from arxiv:1309.04963
 
-# Speedup 7x by feeding square matrix for SVD not rectangular : Dec 7, 2019 
-# D=47 with Niter=30 takes ~  2.5 hours with SVD (The timing is on Symmetry machine at PI)
-# Randomized SVD behaves badly for small 'h'! 
+# D=53 with Niter=40 takes ~ 12-15 hours (The timing is on the Symmetry machine at PI)
+# D=55 gives memory error for now!
 
 import sys
 import math
@@ -15,25 +14,22 @@ from scipy import special
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
-from sklearn.decomposition import TruncatedSVD
 from scipy.sparse import random as sparse_random
-from sklearn.random_projection import sparse_random_matrix
-from sklearn.utils.extmath import randomized_svd
 import time
 import datetime 
 from ncon import ncon
 
-if len(sys.argv) < 3:
-  print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>" )
+if len(sys.argv) < 4:
+  print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h> <Dbond> " )
   sys.exit(1)
 
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
+D = int(sys.argv[3])
+D_cut= = D 
 
-D=47
-D_cut=47 
-Niters=30
+Niters=40
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2   
@@ -116,19 +112,25 @@ def CG_step(matrix, in2):
 
     AAdag = ncon([T,T,T,T],[[-2,1,2,5],[-1,5,3,4],[-4,1,2,6],[-3,6,3,4]])
     U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut) 
+    del s
+    del V 
     A = ncon([U,T,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
     B = ncon([U,TI,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
 
-    AAAAdag = ncon([A,A,A,A],[[1,-1,2,3],[2,-2,4,5],[1,-3,6,3],[6,-4,4,5]])
+    AAdag = ncon([A,A,A,A],[[1,-1,2,3],[2,-2,4,5],[1,-3,6,3],[6,-4,4,5]]) # Reuse old memory allocated
     U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut)  
+    del s
+    del V
     AA = ncon([U,A,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]])
     #BA2 = ncon([U,B,A,U],[[1,2,-2],[-1,1,4,3],[4,2,-3,5],[3,5,-4]]) 
     BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]]) 
-    #print ("Are they same? ", np.allclose(BA, BA2))
+    # print ("Are they same? ", np.allclose(BA, BA2))
     # Small typo which makes no difference [see above]: 2 March, 2020
 
     # U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
-
+    
+    del A
+    del B
     maxAA = np.max(AA)
     AA = AA/maxAA # Normalize by largest element of the tensor
     BA = BA/maxAA
@@ -150,7 +152,7 @@ def get_tensor():
                     index = l+u-r-d
                     out[l+Dn][r+Dn][u+Dn][d+Dn] *= sp.special.iv(index, betah)
 
-    return out  
+    return out.astype(np.float32)  
 
 
 
@@ -167,7 +169,7 @@ def get_site_mag():
                     index = l+u-r-d
                     out[l+Dn][r+Dn][u+Dn][d+Dn] *= 0.50 * (sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
 
-    return out 
+    return out.astype(np.float32)
 
 
 
@@ -220,7 +222,7 @@ if __name__ == "__main__":
 
                
     f=open("mag_data.txt", "a+")    
-    f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \t %4.10f \n" % (Temp, Free, r, Niters, D_cut, h)) 
+    f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \t %4.13f \n" % (Temp, Free, r, Niters, D_cut, h)) 
     f.close()         
     #print (Temp,h,Free,r, X1, Y1)
     print (Temp,h,Free,r)
