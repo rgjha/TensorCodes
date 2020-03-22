@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sys
 import math
 from math import sqrt
@@ -14,43 +15,40 @@ from numpy.linalg import matrix_power
 
 
 if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), "<Verbose or not> " "nmax " "kappa" )
+  print("Usage:", str(sys.argv[0]), " beta " " kappa " " D_cut " )
   sys.exit(1)
 
 
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
-rmax = 0.5   
-
-# rmax=1 means that we consider only trivial & fundamental reps.
-# rmax=2 means we consider adjoint rep. also. 
-# The requirement is determined by the gauge theory one wants to study
-# and the coupling regime. 
-
-# My guess for now is that for theories which flow, for ex: QCD
-# the lower representation can capture Physics under RG flow. 
-# However, when 'walking' or conformal, all the higher reps. 
-# have to be injected to start with. 
+rmax = 0.50   
 
 representation = [x for x in range (0, int(2.0*rmax)+1, 1)]  
 dim = [x+1 for x in representation]   
 rep_max = int(max(representation))                 
 N_r = int(sum(np.square(dim))) 
 N_m = int(max(dim))                              
-Niters = 6
-Niters_time = Niters 
-c=0.01 
+Niters = 4  
+Niters_time = Niters
+c=0.17    # For c > 0.17 need to fix with Ns=6=Nt !
 Ns = int(2**((Niters)))
 Nt = int(2**((Niters_time))) 
 vol = Ns*Nt
-D_cut = 40
-beta=c*vol 
+beta = float(sys.argv[1]) 
+kappa = float(sys.argv[2])
+D_cut = int(sys.argv[3])
+nmax = 4    # Maximum order of Renyi entropy, n=1 is von Neuman 
 
+if D_cut > 63:
+    print ("It will take at least 11 minutes")
 
-verbose = int(sys.argv[1]) 
-nmax = int(sys.argv[2])    # Maximum order of Renyi entropy, n=1 is von Neumann
-kappa = float(sys.argv[3])
+if D_cut > 69:
+    print ("It will take at least 15 minutes")
+
+if D_cut > 74:
+    print ("It will take at least 21 minutes")
+
                                
 A = np.zeros([N_r, N_r])                
 B = np.zeros([N_r, N_r, N_r, N_r])
@@ -263,8 +261,18 @@ def renyi(Rho, nmax):
 
         rho[i-2] = matrix_power(Rho, i)             # Raise to power "n" [\rho_A]^n 
         S[i-2] = math.log(np.trace(rho[i-2]))/(1-i) # Take log and divide by 1-n  
+        # Check once TODO
     
     return S 
+
+def von(Rho):
+    u,v = LA.eig(Rho)
+    chi = u.shape[0] 
+    EE = 0
+    for n in range (0 , chi):
+        if u[n] > 0:
+            EE += -u[n] * math.log(u[n].real)
+    return EE 
 
 
 if __name__ == "__main__":
@@ -312,13 +320,23 @@ if __name__ == "__main__":
     rho_A = np.einsum("klii", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
     # Trace of \rho should be ~1 already, no need to divide!  
 
+    # Check TODO
+
     EE = renyi(rho_A, nmax)
-    print (beta, EE[0])  
+    VN =  von(rho_A)
+    print (beta, VN.real, EE[0]) 
 
 
-    if verbose: 
-        print ("Finished",count+1,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "with rmax =", rmax , "and beta", beta)          
-        print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        print ("-----------------------------------------------------------------") 
+    print ("Finished",count+1,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "with rmax =", rmax , "and beta", beta)          
+    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    print ("-----------------------------------------------------------------") 
+
+
+
+
+
+
+
+
 
 
