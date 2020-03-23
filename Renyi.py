@@ -14,8 +14,8 @@ from ncon import ncon
 from numpy.linalg import matrix_power
 
 
-if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), " beta " " kappa " " D_cut " )
+if len(sys.argv) < 5:
+  print("Usage:", str(sys.argv[0]), " beta " " kappa " " D_cut " "Sub-system size (fraction) ")
   sys.exit(1)
 
 
@@ -39,6 +39,9 @@ beta = float(sys.argv[1])
 kappa = float(sys.argv[2])
 D_cut = int(sys.argv[3])
 nmax = 4    # Maximum order of Renyi entropy, n=1 is von Neuman 
+SS_size = int(1.0/float(sys.argv[4]))
+
+
 
 if D_cut > 63:
     print ("It will take at least 11 minutes")
@@ -54,6 +57,7 @@ A = np.zeros([N_r, N_r])
 B = np.zeros([N_r, N_r, N_r, N_r])
 rho = [None] * nmax
 S = [None] * nmax
+T_data = np.zeros([Niters,D_cut,D_cut,N_r,N_r])
 
 
 ##############################
@@ -276,7 +280,18 @@ def von(Rho):
 
 
 if __name__ == "__main__":
- 
+
+
+    if SS_size < 2:
+        print ("Aborted. Need at least half partition")
+        sys.exit(1)
+    if math.log(SS_size, 2).is_integer() != True:
+        print ("Sub-system size not of form (1/2)^#")
+        sys.exit(1)
+    else:
+        print ("A and B are of size ", 1.0-(1.0/SS_size), "and " ,(1.0/SS_size), "respectively")
+
+
     A = make_tensorA(representation)  # Link tensor  
     B = make_tensorB(representation)  # Plaquette tensor 
 
@@ -300,9 +315,13 @@ if __name__ == "__main__":
 
     for i in range (0,Niters-1):
 
-        T, eps, nc, count = coarse_graining(T, eps, nc, count)   
+        T, eps, nc, count = coarse_graining(T, eps, nc, count)  
+        T_data[i] = T 
+
+    # START HERE TODO
 
     T = T.transpose(2,3,1,0)    # Rotate CCW 90 degrees ** 
+    # For ex.: D,D,5,5 to 5,5,D,D 
     Tnew = ncon((T, T),([1,2,-1,-2], [2,1,-3,-4])) 
 
     Tnew = Tnew.transpose(0,2,1,3)  # Combine correct indices (top and bottom) 

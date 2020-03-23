@@ -86,14 +86,14 @@ Niters = 3
 Ns = int(2**((Niters)))  
 Nt = Ns      
 vol = Nt * Ns
-D_cut = 32
+D_cut = 26
 
 # Time ~ 17 sec with D_cut=40 and Niters=6
 # Time ~ 25 sec with D_cut=40 and Niters=8
 # Time ~ 37 sec with D_cut=40 and Niters=10
 
 if D_cut <= N_r**2:
-  print("Usage: D_cut must be greater than N_r**2 for now")
+  print("Usage: D_cut must be greater than " , N_r**2,  "for now")
   sys.exit(1)
 
 
@@ -427,14 +427,14 @@ if __name__ == "__main__":
         T, eps, nc, count = coarse_graining(T, eps, nc, count) 
 
 
-    T = T.transpose(2,3,1,0)   
+    T = T.transpose(2,3,1,0) # For ex.: D,D,5,5 to 5,5,D,D 
 
     dum = np.einsum("abcd,be->aecd", T, Linverse) 
     dum1 = np.einsum("if, ijkl->fjkl", Linverse, T)
     PL = np.einsum("aecd, efgh, fjkl->ajcgkdhl", dum, Aprime, dum1)    
     PL = np.einsum("iicgkdhl->cgkdhl", PL) 
     PL = PL.reshape(D_cut*D_cut*2,D_cut*D_cut*2) 
-    T = np.einsum("iikl->kl", T)
+    T = np.einsum("iikl->kl", T) # For ex.: 5,5,D,D to D,D
 
 
     for i in range (0, Niters):
