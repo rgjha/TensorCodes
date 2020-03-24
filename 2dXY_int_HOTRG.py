@@ -180,7 +180,7 @@ if __name__ == "__main__":
     T = get_tensor()
     Tim = get_site_mag()
 
-    norm = LA.norm(T)
+    norm = np.max(T)
     T /= norm 
     Tim /= norm 
 
