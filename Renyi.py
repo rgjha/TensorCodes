@@ -320,41 +320,37 @@ if __name__ == "__main__":
 
         #print ("Shape of T", np.shape(T))
         T, eps, nc, count = coarse_graining(T, eps, nc, count)  
-        #print ("Shape of T", np.shape(T))
-        
-        T_data = np.zeros([Niters,np.shape(T)[0],np.shape(T)[0],N_r,N_r])
+        T_data = np.ones([Niters,np.shape(T)[0],np.shape(T)[0],N_r,N_r])
         T_data[i] = T 
-        #print ("Shape of T[0]", np.shape(T_data[0]))
 
-    # START HERE TODO
+    # TODO
 
     T_SS = T_data[int(SS_size-1)]
     T_S = T_data[int(S_size-1)]
 
+
     T_SS = T_SS.transpose(2,3,1,0)    # Rotate both 'T' CCW 90 degrees ** 
+    #print ("NORM 1", LA.norm(T_SS))
     # For ex.: D,D,5,5 to 5,5,D,D 
     T_S = T_S.transpose(2,3,1,0) 
+    #print ("NORM 2", LA.norm(T_S))
 
 
-    Tnew = ncon((T_SS, T_S),([1,2,-1,-2], [2,1,-3,-4])) 
-
-    Tnew = Tnew.transpose(0,2,1,3)  # Combine correct indices (top and bottom) 
+    Tnew = ncon((T_SS, T_S),([1,2,-1,-3], [2,1,-2,-4])) 
     Tnew = Tnew.reshape(int(np.shape(Tnew)[0]*np.shape(Tnew)[2]), int(np.shape(Tnew)[1]*np.shape(Tnew)[3]))
 
-    print ("TRRR", np.trace(Tnew))
 
     for i in range (0, Niters_time):
 
         Tnew = np.matmul(Tnew,Tnew)              # 0. Raise over the time slices
         norm = np.trace(Tnew)
         if norm != 0:
-            print ("...")
             Tnew /= norm
 
-    print ("TR is", np.trace(Tnew))     
+    #print ("TR is", np.trace(Tnew))     
     #Tnew = Tnew/np.trace(Tnew)                   # 1. Normalize to recognize (T)^Nt as \rho
     Tnew = Tnew.reshape(D_cut,D_cut,D_cut,D_cut) # 2. Expose indices for A & B respectively 
-    rho_A = np.einsum("klii", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
+    rho_A = np.einsum("kili", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
     # Trace of \rho should be ~1 already, no need to divide!  
 
     # Check TODO
@@ -365,7 +361,7 @@ if __name__ == "__main__":
 
 
     print ("Finished",count+1,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "with rmax =", rmax , "and beta", beta)   
-    print ("Lattice volume", vol)       
+    print ("No. of iterations", Niters)       
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     print ("-----------------------------------------------------------------") 
 
