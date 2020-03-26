@@ -14,8 +14,8 @@ from ncon import ncon
 from numpy.linalg import matrix_power
 
 
-if len(sys.argv) < 5:
-  print("Usage:", str(sys.argv[0]), " beta " " kappa " " D_cut " "Sub-system size (fraction) ")
+if len(sys.argv) < 6:
+  print("Usage:", str(sys.argv[0]), " beta " " kappa " " D_cut " "Sub-system and system size (# powers of 2)")
   sys.exit(1)
 
 
@@ -24,22 +24,25 @@ print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 rmax = 0.50   
 
+beta = float(sys.argv[1]) 
+kappa = float(sys.argv[2])
+D_cut = int(sys.argv[3])
+nmax = 4    # Maximum order of Renyi entropy, n=1 is von Neuman 
+SS_size = int(sys.argv[4])
+S_size = int(sys.argv[5])
+Niters = SS_size + S_size
+
 representation = [x for x in range (0, int(2.0*rmax)+1, 1)]  
 dim = [x+1 for x in representation]   
 rep_max = int(max(representation))                 
 N_r = int(sum(np.square(dim))) 
-N_m = int(max(dim))                              
-Niters = 4  
+N_m = int(max(dim))                                
 Niters_time = Niters
 c=0.17    # For c > 0.17 need to fix with Ns=6=Nt !
 Ns = int(2**((Niters)))
 Nt = int(2**((Niters_time))) 
 vol = Ns*Nt
-beta = float(sys.argv[1]) 
-kappa = float(sys.argv[2])
-D_cut = int(sys.argv[3])
-nmax = 4    # Maximum order of Renyi entropy, n=1 is von Neuman 
-SS_size = int(1.0/float(sys.argv[4]))
+
 
 
 
@@ -57,7 +60,7 @@ A = np.zeros([N_r, N_r])
 B = np.zeros([N_r, N_r, N_r, N_r])
 rho = [None] * nmax
 S = [None] * nmax
-T_data = np.zeros([Niters,D_cut,D_cut,N_r,N_r])
+
 
 
 ##############################
@@ -282,14 +285,14 @@ def von(Rho):
 if __name__ == "__main__":
 
 
-    if SS_size < 2:
-        print ("Aborted. Need at least half partition")
-        sys.exit(1)
-    if math.log(SS_size, 2).is_integer() != True:
-        print ("Sub-system size not of form (1/2)^#")
-        sys.exit(1)
-    else:
-        print ("A and B are of size ", 1.0-(1.0/SS_size), "and " ,(1.0/SS_size), "respectively")
+    #if SS_size < 2:
+    #    print ("Aborted. Need at least half partition")
+    #    sys.exit(1)
+    #if math.log(SS_size, 2).is_integer() != True:
+    #    print ("Sub-system size not of form (1/2)^#")
+    #    sys.exit(1)
+    #else:
+    #    print ("A and B are of size ", 1.0-(1.0/SS_size), "and " ,(1.0/SS_size), "respectively")
 
 
     A = make_tensorA(representation)  # Link tensor  
@@ -313,28 +316,43 @@ if __name__ == "__main__":
 
     nc = (2**((2*Niters))) * np.log(norm)
 
-    for i in range (0,Niters-1):
+    for i in range (0,Niters):
 
+        #print ("Shape of T", np.shape(T))
         T, eps, nc, count = coarse_graining(T, eps, nc, count)  
+        #print ("Shape of T", np.shape(T))
+        
+        T_data = np.zeros([Niters,np.shape(T)[0],np.shape(T)[0],N_r,N_r])
         T_data[i] = T 
+        #print ("Shape of T[0]", np.shape(T_data[0]))
 
     # START HERE TODO
 
-    T = T.transpose(2,3,1,0)    # Rotate CCW 90 degrees ** 
+    T_SS = T_data[int(SS_size-1)]
+    T_S = T_data[int(S_size-1)]
+
+    T_SS = T_SS.transpose(2,3,1,0)    # Rotate both 'T' CCW 90 degrees ** 
     # For ex.: D,D,5,5 to 5,5,D,D 
-    Tnew = ncon((T, T),([1,2,-1,-2], [2,1,-3,-4])) 
+    T_S = T_S.transpose(2,3,1,0) 
+
+
+    Tnew = ncon((T_SS, T_S),([1,2,-1,-2], [2,1,-3,-4])) 
 
     Tnew = Tnew.transpose(0,2,1,3)  # Combine correct indices (top and bottom) 
-    Tnew = Tnew.reshape(D_cut**2, D_cut**2)
+    Tnew = Tnew.reshape(int(np.shape(Tnew)[0]*np.shape(Tnew)[2]), int(np.shape(Tnew)[1]*np.shape(Tnew)[3]))
 
+    print ("TRRR", np.trace(Tnew))
 
     for i in range (0, Niters_time):
 
         Tnew = np.matmul(Tnew,Tnew)              # 0. Raise over the time slices
-        Tnew /= np.trace(Tnew)
+        norm = np.trace(Tnew)
+        if norm != 0:
+            print ("...")
+            Tnew /= norm
 
-
-    Tnew = Tnew/np.trace(Tnew)                   # 1. Normalize to recognize (T)^Nt as \rho
+    print ("TR is", np.trace(Tnew))     
+    #Tnew = Tnew/np.trace(Tnew)                   # 1. Normalize to recognize (T)^Nt as \rho
     Tnew = Tnew.reshape(D_cut,D_cut,D_cut,D_cut) # 2. Expose indices for A & B respectively 
     rho_A = np.einsum("klii", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
     # Trace of \rho should be ~1 already, no need to divide!  
@@ -343,10 +361,11 @@ if __name__ == "__main__":
 
     EE = renyi(rho_A, nmax)
     VN =  von(rho_A)
-    print (beta, VN.real, EE[0]) 
+    print (VN.real, EE[0]) 
 
 
-    print ("Finished",count+1,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "with rmax =", rmax , "and beta", beta)          
+    print ("Finished",count+1,"C.G. steps with",D_cut,"states, " "kappa =", kappa, "with rmax =", rmax , "and beta", beta)   
+    print ("Lattice volume", vol)       
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     print ("-----------------------------------------------------------------") 
 
