@@ -1,9 +1,8 @@
 # Tensor formulation of a classical statistical 2d model
 # This proceeds by blocking simulatenously along both directions. 
 # Reproduces free energy and magentization from arxiv:1309.04963
-
-# D=53 with Niter=40 takes ~ 12-15 hours (The timing is on the Symmetry machine at PI)
-# D=55 gives memory error for now!
+# D=53 with Niter=40 takes ~ 10 hours (The timing is on the Symmetry machine at PI)
+# D=55 gives memory error on Symmetry!
 
 import sys
 import math
@@ -52,7 +51,8 @@ L = np.zeros([D])
 
 
 def tensorsvd(input,left,right,D):
-    '''Reshape an input tensor into a rectangular matrix with first index corresponding
+    
+    '''Reshape input tensor into a matrix with first index corresponding
     to left set of indices and second index corresponding to right set of indices. Do SVD
     and then reshape U and V to tensors [left,D] x [D,right]  
     '''
@@ -70,11 +70,6 @@ def tensorsvd(input,left,right,D):
     
     
     U, s, V = np.linalg.svd(T,full_matrices = False)
-
-    #X = sparse_random(100, 100, density=0.01, format='csr', random_state=42)
-    #svd = TruncatedSVD(n_components=5, n_iter=7, random_state=42)
-    #svd.fit(X)
-    #U, s, V = randomized_svd(T, n_components=D+10, n_iter=10,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -111,26 +106,16 @@ def CG_step(matrix, in2):
     TI = in2 
 
     AAdag = ncon([T,T,T,T],[[-2,1,2,5],[-1,5,3,4],[-4,1,2,6],[-3,6,3,4]])
-    U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut) 
-    del s
-    del V 
+    U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut)  
     A = ncon([U,T,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
     B = ncon([U,TI,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
-
     AAdag = ncon([A,A,A,A],[[1,-1,2,3],[2,-2,4,5],[1,-3,6,3],[6,-4,4,5]]) # Reuse old memory allocated
     U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut)  
-    del s
-    del V
     AA = ncon([U,A,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]])
     #BA2 = ncon([U,B,A,U],[[1,2,-2],[-1,1,4,3],[4,2,-3,5],[3,5,-4]]) 
     BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]]) 
-    # print ("Are they same? ", np.allclose(BA, BA2))
-    # Small typo which makes no difference [see above]: 2 March, 2020
-
-    # U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
+    # BA and BA2 are same!
     
-    del A
-    del B
     maxAA = np.max(AA)
     AA = AA/maxAA # Normalize by largest element of the tensor
     BA = BA/maxAA
@@ -152,7 +137,10 @@ def get_tensor():
                     index = l+u-r-d
                     out[l+Dn][r+Dn][u+Dn][d+Dn] *= sp.special.iv(index, betah)
 
-    return out.astype(np.float32)  
+    if D_cut > 47:
+        return out.astype(np.float32)
+    else: 
+        return out 
 
 
 
@@ -169,8 +157,10 @@ def get_site_mag():
                     index = l+u-r-d
                     out[l+Dn][r+Dn][u+Dn][d+Dn] *= 0.50 * (sp.special.iv(index-1, beta*h) + sp.special.iv(index+1, beta*h))
 
-    return out.astype(np.float32)
-
+    if D_cut > 47:
+        return out.astype(np.float32)
+    else: 
+        return out
 
 
 if __name__ == "__main__":
@@ -184,46 +174,32 @@ if __name__ == "__main__":
     T /= norm 
     Tim /= norm 
 
-
     Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
-    # See attached files for diagrams!
-    #Z = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
-    #Z = ncon([Z,Z],[[1,2,3,4],[2,1,4,3]])
-    C = 0
-    N = 1
+    C = 0.0
+    N = 1.0
     C = np.log(norm)
-    Free = -Temp*(np.log(Z)+4*C)/(4*N)
 
     for i in range (Niters):
 
         
         T, Tim, norm = CG_step(T, Tim)
-        C = np.log(norm)+4*C
         N *= 4.0
-        Free = -Temp*(np.log(Z)+4*C)/(4*N)
-        print ("Free energy -> ", Free) 
+        C += C + (np.log(norm)/4**(i+1))
+         
         if i == Niters-1:
-
-            
-            #NUM = (np.einsum('ruru',T))**2
-            #Y1 = NUM/np.einsum('rulu, ldrd',T, T)
-            #X1 = NUM/np.einsum('ruld, ldru',T, T)     # Refs. 0903.1069 and 1706.03455
-            #print ("FP value, ", X, Y)
 
             Z1 = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
             Z = ncon([Z1,Z1],[[1,2,3,4],[2,1,4,3]])
-            Free = -Temp*(np.log(Z)+4*C)/(4*N)
-
+            Free1 = -Temp*(C + (np.log(Z)/(4**(Niters))))
             P = ncon([Tim,T],[[1,-1,2,-2],[2,-3,1,-4]])
-            P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]])
-
+            P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]])  
             r = (P/Z)
+            print ("Free energy -> ", Free)
             print ("Mag. -> ", r)
 
                
     f=open("mag_data.txt", "a+")    
     f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \t %4.13f \n" % (Temp, Free, r, Niters, D_cut, h)) 
     f.close()         
-    #print (Temp,h,Free,r, X1, Y1)
     print (Temp,h,Free,r)
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
