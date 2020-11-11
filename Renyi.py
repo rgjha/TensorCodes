@@ -22,7 +22,7 @@ if len(sys.argv) < 6:
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
-rmax = 0.50   
+rmax = 0.5   
 
 beta = float(sys.argv[1]) 
 kappa = float(sys.argv[2])
@@ -227,7 +227,7 @@ def coarse_graining(matrix, eps, nc, count):
     T = matrix  
     d = int(min(D_cut**2, N_r**(2*(count+1))))
 
-    print ("Iteration", int(count+1), "of" , Niters) 
+    #print ("Iteration", int(count+1), "of" , Niters) 
     Za = ncon((T, T),([-1,1,2,-2], [-3,1,2,-4]))       
     Zb = ncon((T, T),([-1,1,-2,2], [-3,1,-4,2]))      
     MMdag_prime = ncon((Za, Zb),([-1,1,-3,2], [-2,1,-4,2])) 
@@ -284,17 +284,6 @@ def von(Rho):
 
 if __name__ == "__main__":
 
-
-    #if SS_size < 2:
-    #    print ("Aborted. Need at least half partition")
-    #    sys.exit(1)
-    #if math.log(SS_size, 2).is_integer() != True:
-    #    print ("Sub-system size not of form (1/2)^#")
-    #    sys.exit(1)
-    #else:
-    #    print ("A and B are of size ", 1.0-(1.0/SS_size), "and " ,(1.0/SS_size), "respectively")
-
-
     A = make_tensorA(representation)  # Link tensor  
     B = make_tensorB(representation)  # Plaquette tensor 
 
@@ -305,11 +294,6 @@ if __name__ == "__main__":
     T = np.einsum("pjkl, pa, jb, kc, ld", B, L, L, L, L) 
     norm = LA.norm(T)
     T /= norm 
-
-    Tprime = np.einsum("pjkl, kc, ld -> pjcd", B, L, L)
-    normprime = LA.norm(Tprime)
-    Tprime /= normprime 
-     
 
     count = 0.0 
     eps = 0.0  
@@ -322,36 +306,46 @@ if __name__ == "__main__":
         T, eps, nc, count = coarse_graining(T, eps, nc, count)  
         T_data = np.ones([Niters,np.shape(T)[0],np.shape(T)[0],N_r,N_r])
         T_data[i] = T 
+        #print ("T shape", np.shape(T))
 
     # TODO
 
     T_SS = T_data[int(SS_size-1)]
     T_S = T_data[int(S_size-1)]
 
+    print ("TS shape", np.shape(T_SS))
+    print ("TS shape", np.shape(T_S))
 
-    T_SS = T_SS.transpose(2,3,1,0)    # Rotate both 'T' CCW 90 degrees ** 
+
+    #T_SS = T_SS.transpose(2,3,1,0)    # Rotate both 'T' CCW 90 degrees ** 
     #print ("NORM 1", LA.norm(T_SS))
     # For ex.: D,D,5,5 to 5,5,D,D 
     T_S = T_S.transpose(2,3,1,0) 
+    T_SS = T_SS.transpose(2,3,1,0)
     #print ("NORM 2", LA.norm(T_S))
 
 
     Tnew = ncon((T_SS, T_S),([1,2,-1,-3], [2,1,-2,-4])) 
+    #Tnew = Tnew.transpose(2,3,1,0) 
     Tnew = Tnew.reshape(int(np.shape(Tnew)[0]*np.shape(Tnew)[2]), int(np.shape(Tnew)[1]*np.shape(Tnew)[3]))
 
 
     for i in range (0, Niters_time):
 
         Tnew = np.matmul(Tnew,Tnew)              # 0. Raise over the time slices
-        norm = np.trace(Tnew)
+        norm = LA.norm(Tnew)
         if norm != 0:
             Tnew /= norm
 
+    print (np.shape(Tnew))
     #print ("TR is", np.trace(Tnew))     
     #Tnew = Tnew/np.trace(Tnew)                   # 1. Normalize to recognize (T)^Nt as \rho
     Tnew = Tnew.reshape(D_cut,D_cut,D_cut,D_cut) # 2. Expose indices for A & B respectively 
-    rho_A = np.einsum("kili", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
+    rho_A = np.einsum("ikil->kl", Tnew)              # 3. Trace over environment/ subsystem B, or A as chosen
     # Trace of \rho should be ~1 already, no need to divide!  
+
+    #print ("TR is", np.trace(rho_A))
+    #print (np.shape(rho_A))
 
     # Check TODO
 
