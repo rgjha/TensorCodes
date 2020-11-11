@@ -94,12 +94,11 @@ if __name__ == "__main__":
     W = np.array([[a,b],[a,-b]])
     Id = np.eye(2) 
 
+
     A = np.einsum("ax, ay -> xya", W, W)
     B = np.einsum("ab, az -> azb", Id, W)
     C = np.einsum("bc, bz -> bzc", Id, W)
     D = np.einsum("cy, cx -> cyx", W, W)
-
-
 
     T = np.einsum("ika, amb, bnc, clj -> ijklmn", A, B, C, D)
     print ("Start shape", np.shape(T))
@@ -130,13 +129,29 @@ if __name__ == "__main__":
     UC = np.einsum("azc, cqp, pix, bji, qjy -> abyzx", C, D, U1, D, U2)   
     MC = np.einsum("awc, bwd -> abcd", B, C)
     DC = np.einsum("dzb, pix, pqa, qjy, ijd -> zxyab", B, np.conjugate(U1), A, np.conjugate(U2), A)
-    T = np.einsum("zxyae, aebf, bfijk -> zjxkyi", DC, MC, UC)
-    print ("End shape", np.shape(T))
+    T1 = np.einsum("zxyae, aebf, bfijk -> zjxkyi", DC, MC, UC)
+    print ("End shape", np.shape(T1), LA.norm(T1))
 
     Tmp = np.einsum("abcd, cdyxz -> abyxz", MC, UC)
     Gprime, st, Dprime = tensorsvd(Tmp,[0,1,2],[3,4],Dcut)
     Eq20 = np.einsum("abyg, gxz -> abyxz", Gprime, Dprime)
-    #print ("Shapes", np.shape(Ut), np.shape(st), np.shape(Vt))
+
+    Tmp2 = np.einsum("zxyab, abig -> zxyig", DC, Gprime)
+    Aprime, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut)
+    Eq21 = np.einsum("zxe, eyig -> zxyig", Aprime, MCprime)
+
+    Bprime, st3, Cprime = tensorsvd(MCprime,[0,1],[2,3],Dcut)
+
+    T2 = np.einsum("zxa, ayb, bic, cjk -> zkxjyi", Aprime, Bprime, Cprime, Dprime)
+    T3 = T2.transpose(0,3,1,2,4,5)
+    print ("End shape", np.shape(T3), LA.norm(T3))
+    # Without truncation norm should match for T1 and T3. 
+    # Not yet!
+
+
+
+
+
 
 
     '''
