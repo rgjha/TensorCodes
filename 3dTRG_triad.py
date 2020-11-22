@@ -31,7 +31,7 @@ if len(sys.argv) < 2:
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 Niter=2
-Dcut=25   # Result unchanged D=32 onwards! Reasons unknown. 
+Dcut=32   # Result unchanged D=32 onwards! Reasons unknown. 
 
 
 def dagger(a):
@@ -58,7 +58,6 @@ def tensorsvd(input,left,right,D):
     
 
     U, s, V = np.linalg.svd(T,full_matrices = False)
-    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -95,8 +94,9 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
     T = np.einsum("ika, amb, bnc, clj -> ijklmn", A, B, C, D)
 
-    T = T.transpose(0,3,1,2,4,5)
-    print ("Start shape", np.shape(T))
+    
+    #T = T.transpose(1,2,4,5,0,3)
+    #print ("Start shape", np.shape(T))
     # Eq (3) of arXiv:1912.02414
 
     M = ncon([T,T],[[-1,-3,-5,-7,1,-9],[-2,-4,-6,-8,-10,1]])
@@ -106,55 +106,50 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     f = np.shape(M)[6]*np.shape(M)[7] 
     c = np.shape(M)[8]
     d = np.shape(M)[9]
-    M1 = np.reshape(M,(a,b,e,f,c,d))
     Mprime = np.reshape(M1,(a,(b*e*f*c*d)))
     K = np.dot(Mprime, dagger(Mprime))
 
-    az = int(np.sqrt(np.shape(K)[0])) 
-
-    #K1 = np.reshape(K,(az*az,az*az))
+    az = int(np.sqrt(a))
     K2 = np.reshape(K,(az,az,az,az))
 
-
-    #U, s1, UL = LA.svd(K1)
-    #print ("SH", np.shape(U), np.shape(s1), np.shape(UL))
     U, s1, UL = tensorsvd(K2,[0,1],[2,3],Dcut)  # This is U [Eq. '11' of arXiv:1912.02414] 
-    #print ("SH2", np.shape(U), np.shape(s1), np.shape(UL))
-
 
     Mprime = np.reshape(M1,(e,a*b*f*c*d))
     K = np.dot(Mprime, dagger(Mprime))
 
-    az = int(np.sqrt(np.shape(K)[0])) 
-    K = np.reshape(K,(az,az,az,az))
+    az = int(np.sqrt(e)) 
+    K3 = np.reshape(K,(az,az,az,az))
 
-    V, s2, VL = tensorsvd(K,[0,1],[2,3],Dcut)  # This is V of arXiv:1912.02414 
+    V, s2, VL = tensorsvd(K3,[0,1],[2,3],Dcut)  # This is V of arXiv:1912.02414 
 
 
-    print ("Shapess", np.shape(C), np.shape(D), np.shape(U), np.shape(V))
+    #print ("Shapess", np.shape(C), np.shape(D), np.shape(U), np.shape(D), np.shape(V))
     UC = np.einsum("azc, cqp, pix, bji, qjy -> abyzx", C, D, U, D, V)   
-    print ("OK")
     MC = np.einsum("awc, bwd -> abcd", B, C)
     DC = np.einsum("dzb, pix, pqa, qjy, ijd -> zxyab", B, np.conjugate(U), A, np.conjugate(V), A)
-    #T1 = np.einsum("zxyae, aebf, bfijk -> zjxkyi", DC, MC, UC)
-    #print ("End shape", np.shape(T1), LA.norm(T1))
 
+
+    Tdirect = np.einsum("zxyae, aebf, bfijk -> zjxkyi", DC, MC, UC)
 
 
     Tmp = np.einsum("abcd, cdyxz -> abyxz", MC, UC)
-    Gprime, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut)
+    G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut)
+    G = np.einsum("abcd, de -> abce", G, st)
 
-    #Gprime = np.einsum("abcd, de -> abce", Gprime, st) # Added this later! May be wrong!
-    #Eq20 = np.einsum("abyg, gxz -> abyxz", Gprime, Dprime)
-
-
-    Tmp2 = np.einsum("zxyab, abig -> zxyig", DC, Gprime)
-    A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
-    #Eq21 = np.einsum("zxe, eyig -> zxyig", Aprime, MCprime)
+    Tmp2 = np.einsum("zxyab, abig -> zxyig", DC, G) # [Eq. '21' of arXiv:1912.02414] 
+    A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) # [Eq. '21' of arXiv:1912.02414] 
+    MCprime = np.einsum("dc, cabe -> dabe", st2, MCprime)  
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
 
+    B = np.einsum("dce, eb -> dcb", B, st3)
+
+    Tindirect = np.einsum("ika, amb, bnc, clj -> ijklmn", A, B, C, D)
+
+    print ("Norm difference!!", LA.norm(Tindirect) - LA.norm(Tdirect))
+    # This vanishes as it should. Indirect is cheaper! 
 
     return A,B,C,D 
+
 
 
 if __name__ == "__main__":
