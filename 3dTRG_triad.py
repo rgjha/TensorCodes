@@ -1,5 +1,5 @@
 # Tensor formulation of 3d model using triad method 
-# Free energy at T = 4.5115 is -3.51 
+# Free energy at T = 4.5115 is -3.51  [is this using Random SVD?]
 # Ref: https://arxiv.org/abs/1912.02414
 
 import sys
@@ -30,8 +30,8 @@ if len(sys.argv) < 2:
 
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
-Niter = 4
-Dcut = 21  
+Niter = 10
+Dcut = 23  
 
 
 def dagger(a):
@@ -176,38 +176,40 @@ if __name__ == "__main__":
     D = np.einsum("cy, cx -> cyx", W, W)
 
     T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
-    norm = LA.norm(T)
-    #print ("N is", norm)
-    #T = np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
+    # Same as np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
+    norm = np.max(T)
 
-    T /= norm 
-    #Z = ncon((T, T),([1,2,3,4,5,6],[1,2,3,4,5,6])) 
+    A  /= np.sqrt(np.sqrt(norm))
+    B  /= np.sqrt(np.sqrt(norm))
+    C  /= np.sqrt(np.sqrt(norm))
+    D  /= np.sqrt(np.sqrt(norm))
+
     Z = ncon((A, B, C, D, A, B, C, D),([4,6,1], [1,8,2],[2,9,3], [3,7,5], [4,6,10], [10,8,11],[11,9,12], [12,7,5]))
     N = 1.0
-    Cumul = np.log(norm)
-
-    Free = -Temp*(np.log(Z)+6.0*Cumul)/(6.0*N)
-    print ("Free energy = ", Free)
+    CU = np.log(norm)
+    Free = -Temp*(np.log(Z)+6.0*CU)/(6.0*N)
  
     for iter in range (Niter):
 
         A, B, C, D = coarse_graining(A,B,C,D)  
         #T_ijklmn = A_ika * B_amb * C_bnc * D_clj 
         T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
-        #print ("Shape of T", np.shape(T))
+        print ("Shape of T -->", np.shape(T))
         norm = np.max(T)
-        #print ("Norm of T", norm)
+
         A  /= np.sqrt(np.sqrt(norm))
         B  /= np.sqrt(np.sqrt(norm))
         C  /= np.sqrt(np.sqrt(norm))
         D  /= np.sqrt(np.sqrt(norm))
 
-        Cumul = np.log(norm) + (6*Cumul) 
+        CU  = np.log(norm) + (6*CU) 
         N *= 6.0
 
-        Z = ncon((T, T),([1,2,3,4,5,6], [1,2,3,4,5,6])) # Should remove this expensive step!
-        Free = -Temp*(np.log(Z)+(6*Cumul))/(6*N)
-        print ("Free energy = ", round(Free,5))
+        if iter == Niter-1:
+            #Z = ncon((T, T),([1,2,3,4,5,6], [1,2,3,4,5,6])) # Should remove this expensive step by one below!
+            Z = ncon((A, B, C, D, A, B, C, D),([4,6,1], [1,8,2],[2,9,3], [3,7,5], [4,6,10], [10,8,11],[11,9,12], [12,7,5]))   
+            Free = -Temp*(np.log(Z)+6.0*CU)/(6.0*N)
+            print ("Free energy = ", round(Free,5))
 
         
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
