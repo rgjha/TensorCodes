@@ -1,5 +1,5 @@
-# Tensor formulation of some 3d model using triad method 
-# Free energy at T= 4.5115 is -3.51
+# Tensor formulation of 3d model using triad method 
+# Free energy at T = 4.5115 is -3.51 
 # Ref: https://arxiv.org/abs/1912.02414
 
 import sys
@@ -30,13 +30,13 @@ if len(sys.argv) < 2:
 
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
-Niter=2
-Dcut=32   # Result unchanged D=32 onwards! Reasons unknown. 
+Niter = 5
+Dcut = 21   # Result unchanged D=32 onwards! Reasons unknown. 
 
 
 def dagger(a):
 
-    return np.transpose(a).conj()
+    return np.conjugate(np.transpose(a))
 
 
 def tensorsvd(input,left,right,D):
@@ -44,7 +44,7 @@ def tensorsvd(input,left,right,D):
     to left set of indices and second index corresponding to right set of indices. Do SVD
     and then reshape U and V to tensors [left,D] x [D,right]  
     '''
-
+    
     T = np.transpose(input,left+right)
     left_index_list = []
     for i in range(len(left)):
@@ -56,7 +56,6 @@ def tensorsvd(input,left,right,D):
     ysize = np.prod(right_index_list)
     T = np.reshape(T,(xsize,ysize))
     
-
     U, s, V = np.linalg.svd(T,full_matrices = False)
     
     if D < len(s):
@@ -70,9 +69,7 @@ def tensorsvd(input,left,right,D):
     U = np.reshape(U,left_index_list+[D])
     V = np.reshape(V,[D]+right_index_list)
         
-        
     return U, s, V
-
 
 def Z3d_Ising():
 
@@ -82,79 +79,117 @@ def Z3d_Ising():
     out = np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
     return out
 
-
-
 def coarse_graining(in1, in2, in3, in4,impure=False):
-
 
     A = in1
     B = in2
     C = in3
     D = in4 
 
-    T = np.einsum("ika, amb, bnc, clj -> ijklmn", A, B, C, D)
+    S1 = np.einsum("xyd, iyk -> xidk", A, np.conjugate(A))
+    a = np.shape(S1)[0] * np.shape(S1)[1]
+    b = np.shape(S1)[2] * np.shape(S1)[3]
+    S1 = np.reshape(S1,(a,b))
+
+    S2 = np.einsum("dze, izk -> diek", B, np.conjugate(B))
+    a = np.shape(S2)[0] * np.shape(S2)[1]
+    b = np.shape(S2)[2] * np.shape(S2)[3]
+    S2 = np.reshape(S2,(a,b))
+
+    Tmp = np.einsum("fyx, iyx -> fi", D, np.conjugate(D))
+    R2 = np.einsum("ewf, ijk, fk -> eiwj", C, np.conjugate(C), Tmp)
+    a = np.shape(R2)[0] * np.shape(R2)[1]
+    b = np.shape(R2)[2] * np.shape(R2)[3]
+    R2mat = np.reshape(R2,(a,b))
+
+    Tmp = np.einsum("ijkk -> ij", R2)
+    R3 = np.einsum("awb, ijk, bk -> aiwj", B, np.conjugate(B), Tmp)
+    a = np.shape(R3)[0] * np.shape(R3)[1]
+    b = np.shape(R3)[2] * np.shape(R3)[3]
+    R3mat = np.reshape(R3,(a,b))
 
     
-    #T = T.transpose(1,2,4,5,0,3)
-    #print ("Start shape", np.shape(T))
-    # Eq (3) of arXiv:1912.02414
+    tmp1 = np.matmul(S1,S2)
+    tmp2 = np.matmul(tmp1,R2mat)
+    tmp3 = np.matmul(tmp2,np.transpose(R3mat))
+    Kprime = np.matmul(tmp3,np.transpose(S1))
+    a = int(np.sqrt(np.shape(Kprime)[0]))
+    b = int(np.sqrt(np.shape(Kprime)[1]))
+    K = np.reshape(Kprime,(b,b,a,a))
+    U, s1, UL = tensorsvd(K,[0,1],[2,3],Dcut) 
 
-    M = ncon([T,T],[[-1,-3,-5,-7,1,-9],[-2,-4,-6,-8,-10,1]])
-    a = np.shape(M)[0]*np.shape(M)[1] 
-    b = np.shape(M)[2]*np.shape(M)[3] 
-    e = np.shape(M)[4]*np.shape(M)[5] 
-    f = np.shape(M)[6]*np.shape(M)[7] 
-    c = np.shape(M)[8]
-    d = np.shape(M)[9]
-    Mprime = np.reshape(M1,(a,(b*e*f*c*d)))
-    K = np.dot(Mprime, dagger(Mprime))
-
-    az = int(np.sqrt(a))
-    K2 = np.reshape(K,(az,az,az,az))
-
-    U, s1, UL = tensorsvd(K2,[0,1],[2,3],Dcut)  # This is U [Eq. '11' of arXiv:1912.02414] 
-
-    Mprime = np.reshape(M1,(e,a*b*f*c*d))
-    K = np.dot(Mprime, dagger(Mprime))
-
-    az = int(np.sqrt(e)) 
-    K3 = np.reshape(K,(az,az,az,az))
-
-    V, s2, VL = tensorsvd(K3,[0,1],[2,3],Dcut)  # This is V of arXiv:1912.02414 
+    # Now finding "V"
+    S1 = np.einsum("xyd, xik -> yidk", A, np.conjugate(A))
+    a = np.shape(S1)[0] * np.shape(S1)[1]
+    b = np.shape(S1)[2] * np.shape(S1)[3]
+    S1 = np.reshape(S1,(a,b))
 
 
-    #print ("Shapess", np.shape(C), np.shape(D), np.shape(U), np.shape(D), np.shape(V))
-    UC = np.einsum("azc, cqp, pix, bji, qjy -> abyzx", C, D, U, D, V)   
-    MC = np.einsum("awc, bwd -> abcd", B, C)
-    DC = np.einsum("dzb, pix, pqa, qjy, ijd -> zxyab", B, np.conjugate(U), A, np.conjugate(V), A)
+    #S2 = np.einsum("dze, izk -> diek", B, np.conjugate(B))
+    #a = np.shape(S2)[0] * np.shape(S2)[1]
+    #b = np.shape(S2)[2] * np.shape(S2)[3]
+    #S2 = np.reshape(S2,(a,b))
 
 
-    Tdirect = np.einsum("zxyae, aebf, bfijk -> zjxkyi", DC, MC, UC)
+    #Tmp = np.einsum("fyx, iyx -> fi", D, np.conjugate(D))
+    #R2 = np.einsum("ewf, ijk, fk -> eiwj", C, np.conjugate(C), Tmp)
+    #a = np.shape(R2)[0] * np.shape(R2)[1]
+    #b = np.shape(R2)[2] * np.shape(R2)[3]
+    #R2mat = np.reshape(R2,(a,b))
 
 
-    Tmp = np.einsum("abcd, cdyxz -> abyxz", MC, UC)
-    G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut)
-    G = np.einsum("abcd, de -> abce", G, st)
+    Tmp = np.einsum("ijkk -> ij", R2)
+    R3 = np.einsum("awb, ijk, bk -> aiwj", B, np.conjugate(B), Tmp)
+    a = np.shape(R3)[0] * np.shape(R3)[1]
+    b = np.shape(R3)[2] * np.shape(R3)[3]
+    R3mat = np.reshape(R3,(a,b))
 
-    Tmp2 = np.einsum("zxyab, abig -> zxyig", DC, G) # [Eq. '21' of arXiv:1912.02414] 
-    A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) # [Eq. '21' of arXiv:1912.02414] 
-    MCprime = np.einsum("dc, cabe -> dabe", st2, MCprime)  
+    #Kprime = np.einsum("ij, jk, kp, pq, qr -> ir", S1, S2, R2mat, np.transpose(R3mat), np.transpose(S1))
+    
+    tmp1 = np.matmul(S1,S2)
+    tmp2 = np.matmul(tmp1,R2mat)
+    tmp3 = np.matmul(tmp2,np.transpose(R3mat))
+    Kprime = np.matmul(tmp3,np.transpose(S1))
+    
+    a = int(np.sqrt(np.shape(Kprime)[0]))
+    b = int(np.sqrt(np.shape(Kprime)[1]))
+    K = np.reshape(Kprime,(b,b,a,a))
+    V, s1, VL = tensorsvd(K,[0,1],[2,3],Dcut)
+    
+    #UC = np.einsum("azc, cqp, pix, bji, qjy -> abyxz", C, D, U, D, V)   # May be "abyzx" is "abyxz" 
+    UC = ncon((C, D, U, D, V),([-1,-5,1],[1,2,3],[3,4,-4], [-2,5,4],[2,5,-3]))
+
+    #MC = np.einsum("awc, bwd -> abcd", B, C)
+    MC = ncon((B, C),([-1,1,-3], [-2,1,-4]))
+
+    #DC = np.einsum("dzb, pix, pqa, qjy, ijd -> zxyab", B, np.conjugate(U), A, np.conjugate(V), A)
+    DC = ncon((B, np.conjugate(U), A, np.conjugate(V), A),([1,-1,-5],[2,3,-2],[2,4,-4],[4,5,-3],[3,5,1]))
+
+    #Tmp = np.einsum("abcd, cdyxz -> abyxz", MC, UC)
+    Tmp = ncon((MC, UC),([-1,-2,1,2], [1,2,-3,-4,-5]))
+
+    G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
+
+    #G = np.einsum("abcd, de -> abce", G, st)
+    G = ncon((G, st),([-1,-2,-3,1], [1,-4]))
+
+    #Tmp2 = np.einsum("zxyab, abig -> zxyig", DC, G)
+    Tmp2 = ncon((DC, G),([-1,-2,-3,1,2], [1,2,-4,-5]))
+
+    A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
+
+    #MCprime = np.einsum("dc, cabe -> dabe", st2, MCprime)
+    MCprime = ncon((st2, MCprime),([-1,1], [1,-2,-3,-4]))
+
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-
-    B = np.einsum("dce, eb -> dcb", B, st3)
-
-    Tindirect = np.einsum("ika, amb, bnc, clj -> ijklmn", A, B, C, D)
-
-    print ("Norm difference!!", LA.norm(Tindirect) - LA.norm(Tdirect))
-    # This vanishes as it should. Indirect is cheaper! 
+    
+    #B = np.einsum("dce, eb -> dcb", B, st3)
+    B = ncon((B, st3),([-1,-2, 1], [1,-3]))
 
     return A,B,C,D 
 
-
-
 if __name__ == "__main__":
     
-
     a = np.sqrt(np.cosh(beta))
     b = np.sqrt(np.sinh(beta)) 
     W = np.array([[a,b],[a,-b]])
@@ -165,16 +200,14 @@ if __name__ == "__main__":
     C = np.einsum("bc, bz -> bzc", Id, W)
     D = np.einsum("cy, cx -> cyx", W, W)
 
-
     for iter in range (Niter):
 
-        A, B, C, D = coarse_graining(A,B,C,D) 
-        A, B, C, D = coarse_graining(A,B,C,D) 
-
-
-    # ........................................................
-
-    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-
-            
+        A, B, C, D = coarse_graining(A,B,C,D)  
+        #T = np.einsum("ika, amb, bnc, clj -> ijklmn", A, B, C, D)
+        T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
+        print ("Shape of T", np.shape(T))
+        print ("Norm of T", LA.norm(T))
+        print ("Finished", iter+1 , "steps of coarse graining")
+        # 885.9283228579225
+        
+    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
