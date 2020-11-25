@@ -30,7 +30,7 @@ if len(sys.argv) < 2:
 
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
-Niter = 5
+Niter = 4
 Dcut = 21  
 
 
@@ -76,8 +76,10 @@ def Z3d_Ising():
     a = np.sqrt(np.cosh(beta))
     b = np.sqrt(np.sinh(beta)) 
     W = np.array([[a,b],[a,-b]])
-    out = np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
+    out = ncon((W, W, W, W, W, W),([1,-1],[1,-2],[1,-3],[1,-4],[1,-5],[1,-6]))
+    # W_ia * W_ib * W_ic * W_id * W_ie * W_if
     return out
+
 
 def coarse_graining(in1, in2, in3, in4,impure=False):
 
@@ -86,12 +88,12 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     C = in3
     D = in4 
 
-    S1 = np.einsum("xyd, iyk -> xidk", A, np.conjugate(A))
+    S1 = ncon((A, np.conjugate(A)),([-1,1,-3], [-2,1,-4]))
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
 
-    S2 = np.einsum("dze, izk -> diek", B, np.conjugate(B))
+    S2 = ncon((B, np.conjugate(B)),([-1,1,-3], [-2,1,-4]))
     a = np.shape(S2)[0] * np.shape(S2)[1]
     b = np.shape(S2)[2] * np.shape(S2)[3]
     S2 = np.reshape(S2,(a,b))
@@ -173,14 +175,39 @@ if __name__ == "__main__":
     C = np.einsum("bc, bz -> bzc", Id, W)
     D = np.einsum("cy, cx -> cyx", W, W)
 
+    T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
+    norm = LA.norm(T)
+    #print ("N is", norm)
+    #T = np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
+
+    T /= norm 
+    #Z = ncon((T, T),([1,2,3,4,5,6],[1,2,3,4,5,6])) 
+    Z = ncon((A, B, C, D, A, B, C, D),([4,6,1], [1,8,2],[2,9,3], [3,7,5], [4,6,10], [10,8,11],[11,9,12], [12,7,5]))
+    N = 1.0
+    Cumul = np.log(norm)
+
+    Free = -Temp*(np.log(Z)+6.0*Cumul)/(6.0*N)
+    print ("Free energy = ", Free)
+ 
     for iter in range (Niter):
 
         A, B, C, D = coarse_graining(A,B,C,D)  
-        #T_ijklmn = A_ika * B_amb * C_bnc * D_clj
+        #T_ijklmn = A_ika * B_amb * C_bnc * D_clj 
         T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
-        print ("Shape of T", np.shape(T))
-        print ("Norm of T", LA.norm(T))
-        print ("Finished", iter+1 , "steps of coarse graining")
-        # Ref:885.9283228579225
+        #print ("Shape of T", np.shape(T))
+        norm = np.max(T)
+        #print ("Norm of T", norm)
+        A  /= np.sqrt(np.sqrt(norm))
+        B  /= np.sqrt(np.sqrt(norm))
+        C  /= np.sqrt(np.sqrt(norm))
+        D  /= np.sqrt(np.sqrt(norm))
+
+        Cumul = np.log(norm) + (6*Cumul) 
+        N *= 6.0
+
+        Z = ncon((T, T),([1,2,3,4,5,6], [1,2,3,4,5,6])) # Should remove this expensive step!
+        Free = -Temp*(np.log(Z)+(6*Cumul))/(6*N)
+        print ("Free energy = ", round(Free,5))
+
         
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
