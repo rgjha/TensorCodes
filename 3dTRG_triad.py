@@ -31,7 +31,7 @@ if len(sys.argv) < 2:
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 Niter = 5
-Dcut = 21   # Result unchanged D=32 onwards! Reasons unknown. 
+Dcut = 21  
 
 
 def dagger(a):
@@ -125,26 +125,12 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     S1 = np.reshape(S1,(a,b))
 
 
-    #S2 = np.einsum("dze, izk -> diek", B, np.conjugate(B))
-    #a = np.shape(S2)[0] * np.shape(S2)[1]
-    #b = np.shape(S2)[2] * np.shape(S2)[3]
-    #S2 = np.reshape(S2,(a,b))
-
-
-    #Tmp = np.einsum("fyx, iyx -> fi", D, np.conjugate(D))
-    #R2 = np.einsum("ewf, ijk, fk -> eiwj", C, np.conjugate(C), Tmp)
-    #a = np.shape(R2)[0] * np.shape(R2)[1]
-    #b = np.shape(R2)[2] * np.shape(R2)[3]
-    #R2mat = np.reshape(R2,(a,b))
-
-
     Tmp = np.einsum("ijkk -> ij", R2)
     R3 = np.einsum("awb, ijk, bk -> aiwj", B, np.conjugate(B), Tmp)
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-    #Kprime = np.einsum("ij, jk, kp, pq, qr -> ir", S1, S2, R2mat, np.transpose(R3mat), np.transpose(S1))
     
     tmp1 = np.matmul(S1,S2)
     tmp2 = np.matmul(tmp1,R2mat)
@@ -156,37 +142,24 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     K = np.reshape(Kprime,(b,b,a,a))
     V, s1, VL = tensorsvd(K,[0,1],[2,3],Dcut)
     
-    #UC = np.einsum("azc, cqp, pix, bji, qjy -> abyxz", C, D, U, D, V)   # May be "abyzx" is "abyxz" 
-    UC = ncon((C, D, U, D, V),([-1,-5,1],[1,2,3],[3,4,-4], [-2,5,4],[2,5,-3]))
 
-    #MC = np.einsum("awc, bwd -> abcd", B, C)
+    UC = ncon((C, D, U, D, V),([-1,-5,1],[1,2,3],[3,4,-4], [-2,5,4],[2,5,-3]))  # UC_abyxz
     MC = ncon((B, C),([-1,1,-3], [-2,1,-4]))
-
-    #DC = np.einsum("dzb, pix, pqa, qjy, ijd -> zxyab", B, np.conjugate(U), A, np.conjugate(V), A)
     DC = ncon((B, np.conjugate(U), A, np.conjugate(V), A),([1,-1,-5],[2,3,-2],[2,4,-4],[4,5,-3],[3,5,1]))
 
-    #Tmp = np.einsum("abcd, cdyxz -> abyxz", MC, UC)
     Tmp = ncon((MC, UC),([-1,-2,1,2], [1,2,-3,-4,-5]))
-
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
-
-    #G = np.einsum("abcd, de -> abce", G, st)
     G = ncon((G, st),([-1,-2,-3,1], [1,-4]))
 
-    #Tmp2 = np.einsum("zxyab, abig -> zxyig", DC, G)
     Tmp2 = ncon((DC, G),([-1,-2,-3,1,2], [1,2,-4,-5]))
-
     A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
 
-    #MCprime = np.einsum("dc, cabe -> dabe", st2, MCprime)
     MCprime = ncon((st2, MCprime),([-1,1], [1,-2,-3,-4]))
-
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-    
-    #B = np.einsum("dce, eb -> dcb", B, st3)
     B = ncon((B, st3),([-1,-2, 1], [1,-3]))
 
     return A,B,C,D 
+
 
 if __name__ == "__main__":
     
@@ -203,11 +176,11 @@ if __name__ == "__main__":
     for iter in range (Niter):
 
         A, B, C, D = coarse_graining(A,B,C,D)  
-        #T = np.einsum("ika, amb, bnc, clj -> ijklmn", A, B, C, D)
+        #T_ijklmn = A_ika * B_amb * C_bnc * D_clj
         T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
         print ("Shape of T", np.shape(T))
         print ("Norm of T", LA.norm(T))
         print ("Finished", iter+1 , "steps of coarse graining")
-        # 885.9283228579225
+        # Ref:885.9283228579225
         
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
