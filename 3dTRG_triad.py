@@ -1,5 +1,5 @@
 # Tensor formulation of 3d model using triad method 
-# Free energy at T = 4.5115 is -3.51  [is this using Random SVD?]
+# Free energy at T = 4.5115 is -3.51  [is this using Random SVD? .. Probably, yes!]
 # Ref: https://arxiv.org/abs/1912.02414
 
 import sys
@@ -30,8 +30,8 @@ if len(sys.argv) < 2:
 
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
-Niter = 10
-Dcut = 23  
+Niter = 15
+Dcut = 26
 
 
 def dagger(a):
@@ -57,6 +57,8 @@ def tensorsvd(input,left,right,D):
     T = np.reshape(T,(xsize,ysize))
     
     U, s, V = np.linalg.svd(T,full_matrices = False)
+    # Interchanges between RSVD and usual SVD 
+    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -146,6 +148,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     
 
     UC = ncon((C, D, U, D, V),([-1,-5,1],[1,2,3],[3,4,-4], [-2,5,4],[2,5,-3]))  # UC_abyxz
+    # Note that there is typo in Eq. (17) of arXiv:1912.02414
     MC = ncon((B, C),([-1,1,-3], [-2,1,-4]))
     DC = ncon((B, np.conjugate(U), A, np.conjugate(V), A),([1,-1,-5],[2,3,-2],[2,4,-4],[4,5,-3],[3,5,1]))
 
@@ -176,25 +179,21 @@ if __name__ == "__main__":
     D = np.einsum("cy, cx -> cyx", W, W)
 
     T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
-    # Same as np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
+    # Same as np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W) 
     norm = np.max(T)
+    CU = np.log(norm)
 
     A  /= np.sqrt(np.sqrt(norm))
     B  /= np.sqrt(np.sqrt(norm))
     C  /= np.sqrt(np.sqrt(norm))
     D  /= np.sqrt(np.sqrt(norm))
 
-    Z = ncon((A, B, C, D, A, B, C, D),([4,6,1], [1,8,2],[2,9,3], [3,7,5], [4,6,10], [10,8,11],[11,9,12], [12,7,5]))
-    N = 1.0
-    CU = np.log(norm)
-    Free = -Temp*(np.log(Z)+6.0*CU)/(6.0*N)
  
     for iter in range (Niter):
 
         A, B, C, D = coarse_graining(A,B,C,D)  
         #T_ijklmn = A_ika * B_amb * C_bnc * D_clj 
-        T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
-        print ("Shape of T -->", np.shape(T))
+        T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2])) 
         norm = np.max(T)
 
         A  /= np.sqrt(np.sqrt(norm))
@@ -202,14 +201,14 @@ if __name__ == "__main__":
         C  /= np.sqrt(np.sqrt(norm))
         D  /= np.sqrt(np.sqrt(norm))
 
-        CU  = np.log(norm) + (6*CU) 
-        N *= 6.0
-
+        CU += np.log(norm)/(8**(Niter))
+        print ("Finished", iter+1, "steps of CG")
+        
         if iter == Niter-1:
-            #Z = ncon((T, T),([1,2,3,4,5,6], [1,2,3,4,5,6])) # Should remove this expensive step by one below!
             Z = ncon((A, B, C, D, A, B, C, D),([4,6,1], [1,8,2],[2,9,3], [3,7,5], [4,6,10], [10,8,11],[11,9,12], [12,7,5]))   
-            Free = -Temp*(np.log(Z)+6.0*CU)/(6.0*N)
-            print ("Free energy = ", round(Free,5))
+            Free = -Temp*(CU + (np.log(Z)/(8*(Niter))))
+            print ("Free energy = ", round(Free,4))
 
         
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+
