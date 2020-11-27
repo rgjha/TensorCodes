@@ -100,14 +100,14 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     b = np.shape(S2)[2] * np.shape(S2)[3]
     S2 = np.reshape(S2,(a,b))
 
-    Tmp = np.einsum("fyx, iyx -> fi", D, np.conjugate(D))
-    R2 = np.einsum("ewf, ijk, fk -> eiwj", C, np.conjugate(C), Tmp)
+    Tmp = ncon((D, np.conjugate(D)),([-1,1,2], [-2,1,2]))
+    R2 = ncon((C, np.conjugate(C), Tmp),([-1,-3,1], [-2,-4,2], [1,2]))
     a = np.shape(R2)[0] * np.shape(R2)[1]
     b = np.shape(R2)[2] * np.shape(R2)[3]
     R2mat = np.reshape(R2,(a,b))
 
-    Tmp = np.einsum("ijkk -> ij", R2)
-    R3 = np.einsum("awb, ijk, bk -> aiwj", B, np.conjugate(B), Tmp)
+    Tmp = ncon((R2),([-1,-2,1,1]))
+    R3 = ncon((B, np.conjugate(B), Tmp),([-1,-3,1], [-2,-4,2],[1,2]))
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
@@ -123,14 +123,14 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     U, s1, UL = tensorsvd(K,[0,1],[2,3],Dcut) 
 
     # Now finding "V"
-    S1 = np.einsum("xyd, xik -> yidk", A, np.conjugate(A))
+    S1 = ncon((A, np.conjugate(A)),([1,-1,-3], [1,-2,-4]))
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
 
 
-    Tmp = np.einsum("ijkk -> ij", R2)
-    R3 = np.einsum("awb, ijk, bk -> aiwj", B, np.conjugate(B), Tmp)
+    Tmp = ncon((R2),([-1,-2,1,1]))
+    R3 = ncon((B, np.conjugate(B), Tmp),([-1,-3,1], [-2,-4,2], [1,2]))
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
