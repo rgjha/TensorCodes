@@ -73,7 +73,7 @@ def tensorsvd(input,left,right,D):
         
     return U, s, V
 
-def Z3d_Ising():
+def Z3d_Ising(beta):
 
     a = np.sqrt(np.cosh(beta))
     b = np.sqrt(np.sinh(beta)) 
@@ -81,6 +81,45 @@ def Z3d_Ising():
     out = ncon((W, W, W, W, W, W),([1,-1],[1,-2],[1,-3],[1,-4],[1,-5],[1,-6]))
     # W_ia * W_ib * W_ic * W_id * W_ie * W_if
     return out
+
+
+def Z3d_XY(beta, h, Dn):
+
+    betah = beta*h 
+
+    for i in range (-Dn,Dn+1):
+        L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
+
+    out = ncon((L, L, L, L, L, L),([-1],[-2],[-3],[-4],[-5],[-6]))
+    # Alt: T = np.einsum("i,j,k,l, m, n->ijklmn", L, L, L, L, L, L)
+    for l in range (-Dn,Dn+1):
+        for r in range (-Dn,Dn+1):
+            for u in range (-Dn,Dn+1):
+                for d in range (-Dn,Dn+1):
+                    for f in range (-Dn,Dn+1):
+                        for b in range (-Dn,Dn+1):
+
+                            index = l+u+f-r-d-b
+                            out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
+
+    return out
+
+
+def Z3d_U1(beta, D):
+
+    A = np.zeros([D, D]) 
+
+    for i in range (D):
+        for j in range (D):
+            A[i][j] = sp.special.iv(i-j, beta)
+
+    L = LA.cholesky(A) 
+    #out = np.einsum("ia, ib, ic, id, ie, if -> abcdef", L, L, L, L, L, L)
+    out = ncon((L, L, L, L, L, L),([1,-1],[1,-2],[1,-3],[1,-4],[1,-5],[1,-6]))
+
+    return out
+
+    
 
 
 def coarse_graining(in1, in2, in3, in4,impure=False):
@@ -154,14 +193,14 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
     Tmp = ncon((MC, UC),([-1,-2,1,2], [1,2,-3,-4,-5]))
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
-    G = ncon((G, st),([-1,-2,-3,1], [1,-4]))
+    G = ncon((G, st),([-1,-2,-3,1], [1,-4]))  # ** 
 
     Tmp2 = ncon((DC, G),([-1,-2,-3,1,2], [1,2,-4,-5]))
     A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
 
-    MCprime = ncon((st2, MCprime),([-1,1], [1,-2,-3,-4]))
+    MCprime = ncon((st2, MCprime),([-1,1], [1,-2,-3,-4])) # ** 
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-    B = ncon((B, st3),([-1,-2, 1], [1,-3]))
+    B = ncon((B, st3),([-1,-2, 1], [1,-3])) # ** 
 
     return A,B,C,D 
 
