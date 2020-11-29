@@ -31,7 +31,7 @@ if len(sys.argv) < 2:
 Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 Niter = 15
-Dcut = 26
+Dcut = 20
 
 
 def dagger(a):
@@ -231,6 +231,7 @@ if __name__ == "__main__":
     for iter in range (Niter):
 
         A, B, C, D = coarse_graining(A,B,C,D)  
+        print ("Finished", iter+1, "out of", Niter , "steps of CG")
         #T_ijklmn = A_ika * B_amb * C_bnc * D_clj 
         T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2])) 
         norm = np.max(T)
@@ -239,14 +240,13 @@ if __name__ == "__main__":
         B  /= np.sqrt(np.sqrt(norm))
         C  /= np.sqrt(np.sqrt(norm))
         D  /= np.sqrt(np.sqrt(norm))
+        CU += np.log(norm)/(2**(iter+1))
 
-        CU += np.log(norm)/(8**(Niter))
-        print ("Finished", iter+1, "steps of CG")
         
         if iter == Niter-1:
             Z = ncon((A, B, C, D, A, B, C, D),([4,6,1], [1,8,2],[2,9,3], [3,7,5], [4,6,10], [10,8,11],[11,9,12], [12,7,5]))   
-            Free = -Temp*(CU + (np.log(Z)/(8*(Niter))))
-            print ("Free energy = ", round(Free,4))
+            Free = -Temp*(CU + (np.log(Z)/(2**Niter)))
+            print ("Free energy is ", round(Free,4), " @ T =", Temp, "with bond dimension", Dcut)
 
         
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
