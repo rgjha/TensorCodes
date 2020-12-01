@@ -21,8 +21,8 @@ from numpy.linalg import matrix_power
 from numpy import ndarray
 import time
 import datetime 
-from ncon import ncon
-from doTNR import doTNR     # See doTNR.py for details !
+from packages import ncon
+from packages import doTNR     # See doTNR.py for details !
 
 if len(sys.argv) < 4:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h>  <TNR is 1, HOTRG is 0> ")
@@ -39,8 +39,8 @@ beta = float(1.0/Temp)
 # Improvement by never explicitly constructing M --> D=27 is 8 seconds, 
 # D=32 is 28 sec, D=36 is 58 sec, D=40 takes about 160 sec. 
 
-D=25
-D_cut=25
+D=5
+D_cut=5
 Niters=12
 Ns = int(2**((Niters)))
 Nt = Ns  

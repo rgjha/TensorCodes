@@ -10,7 +10,7 @@ from numpy.linalg import matrix_power
 from numpy import ndarray
 import time
 import datetime 
-from ncon import ncon
+from packages import ncon
 from numpy.linalg import matrix_power
 
 

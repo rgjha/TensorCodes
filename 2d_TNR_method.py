@@ -9,10 +9,10 @@ from numpy.linalg import matrix_power
 from numpy import ndarray
 import time
 import datetime 
-from ncon import ncon
+from packages import ncon
 from scipy.stats import unitary_group
 from scipy.stats import ortho_group
-from doTNR import doTNR 
+from packages import doTNR 
 
 
 if len(sys.argv) < 2:

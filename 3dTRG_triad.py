@@ -3,6 +3,7 @@
 # Ref: https://arxiv.org/abs/1912.02414
 # Now using "contract" which seems much faster than NCON
 # https://doi.org/10.21105/joss.00753
+# https://github.com/dgasmith/opt_einsum
 
 import sys
 import math
@@ -13,26 +14,25 @@ from scipy import special
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
-from sklearn.decomposition import TruncatedSVD
-from scipy.sparse import random as sparse_random
-from sklearn.random_projection import sparse_random_matrix
-from sklearn.utils.extmath import randomized_svd
+from matplotlib import pyplot as plt
 import time
 import datetime
-from ncon import ncon
+#from packages import ncon
 from opt_einsum import contract
+
 
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
-if len(sys.argv) < 2:
-  print("Usage:", str(sys.argv[0]), "<Temperature, T>")
+
+if len(sys.argv) < 4:
+  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, System choice: 0 for Ising, 1 for U(1) model>")
   sys.exit(1)
 
-Temp =  float(sys.argv[1])
-beta = float(1.0/Temp)
-Niter = 15
-Dcut = 20
+
+Niter = int(sys.argv[1])
+Dcut = int(sys.argv[2])
+choice = int(sys.argv[3])
 
 
 def dagger(a):
@@ -79,9 +79,14 @@ def Z3d_Ising(beta):
     a = np.sqrt(np.cosh(beta))
     b = np.sqrt(np.sinh(beta)) 
     W = np.array([[a,b],[a,-b]])
-    out = ncon((W, W, W, W, W, W),([1,-1],[1,-2],[1,-3],[1,-4],[1,-5],[1,-6]))
-    # W_ia * W_ib * W_ic * W_id * W_ie * W_if
-    return out
+    Id = np.eye(2)
+
+    A = contract("ax, ay -> xya", W, W)
+    B = contract("ab, az -> azb", Id, W)
+    C = contract("bc, bz -> bzc", Id, W)
+    D = contract("cy, cx -> cyx", W, W)
+
+    return A, B, C, D
 
 
 def Z3d_XY(beta, h, Dn):
@@ -91,8 +96,7 @@ def Z3d_XY(beta, h, Dn):
     for i in range (-Dn,Dn+1):
         L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
 
-    out = ncon((L, L, L, L, L, L),([-1],[-2],[-3],[-4],[-5],[-6]))
-    # Alt: T = np.einsum("i,j,k,l, m, n->ijklmn", L, L, L, L, L, L)
+    out = contract("i,j,k,l,m,n->ijklmn", L, L, L, L, L, L)
     for l in range (-Dn,Dn+1):
         for r in range (-Dn,Dn+1):
             for u in range (-Dn,Dn+1):
@@ -114,11 +118,16 @@ def Z3d_U1(beta, D):
         for j in range (D):
             A[i][j] = sp.special.iv(i-j, beta)
 
-    L = LA.cholesky(A) 
-    out = contract("ia, ib, ic, id, ie, if -> abcdef", L, L, L, L, L, L)
-    #out = ncon((L, L, L, L, L, L),([1,-1],[1,-2],[1,-3],[1,-4],[1,-5],[1,-6]))
+    W = LA.cholesky(A) 
+    #out = contract("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
 
-    return out
+    Id = np.eye(D)
+    A = contract("ax, ay -> xya", W, W)
+    B = contract("ab, az -> azb", Id, W)
+    C = contract("bc, bz -> bzc", Id, W)
+    D = contract("cy, cx -> cyx", W, W)
+
+    return A,B,C,D
 
     
 def coarse_graining(in1, in2, in3, in4,impure=False):
@@ -128,25 +137,24 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     C = in3
     D = in4 
 
-    #S1 = ncon((A, np.conjugate(A)),([-1,1,-3], [-2,1,-4]))
     S1 = contract('ijk,pjq->ipkq', A, np.conjugate(A))
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
 
-    S2 = ncon((B, np.conjugate(B)),([-1,1,-3], [-2,1,-4]))
+    S2 = contract('ijk,pjq->ipkq', B, np.conjugate(B))
     a = np.shape(S2)[0] * np.shape(S2)[1]
     b = np.shape(S2)[2] * np.shape(S2)[3]
     S2 = np.reshape(S2,(a,b))
 
-    Tmp = ncon((D, np.conjugate(D)),([-1,1,2], [-2,1,2]))
-    R2 = ncon((C, np.conjugate(C), Tmp),([-1,-3,1], [-2,-4,2], [1,2]))
+    Tmp = contract('ijk,pjk->ip', D, np.conjugate(D))
+    R2 = contract('ijk,pqr,kr->ipjq', C, np.conjugate(C), Tmp)
     a = np.shape(R2)[0] * np.shape(R2)[1]
     b = np.shape(R2)[2] * np.shape(R2)[3]
     R2mat = np.reshape(R2,(a,b))
 
-    Tmp = ncon((R2),([-1,-2,1,1]))
-    R3 = ncon((B, np.conjugate(B), Tmp),([-1,-3,1], [-2,-4,2],[1,2]))
+    Tmp = contract('ijkk->ij', R2)
+    R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp)
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
@@ -163,20 +171,13 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 
     # Now finding "V"
-    #S1 = ncon((A, np.conjugate(A)),([1,-1,-3], [1,-2,-4]))
     S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
 
-
-    Tmp = ncon((R2),([-1,-2,1,1]))
-
-
-    #R3 = ncon((B, np.conjugate(B), Tmp),([-1,-3,1], [-2,-4,2], [1,2]))
+    Tmp = contract('ijkk->ij', R2)
     R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp)
-
-    #R3 = ncon((B, np.conjugate(B)),([-1,-3,-5], [-2,-4,-6], [1,2]))
 
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
@@ -195,78 +196,57 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     del Kprime
     del S1 
 
-
-    #UC = ncon((C, D, U, D, V),([-1,-5,1],[1,2,3],[3,4,-4], [-2,5,4],[2,5,-3]))  # UC_abyxz
+    # UC_abyxz
     # Note that there is typo in Eq. (17) of arXiv:1912.02414
     UC = contract('azc,cqp,pix,bji,qjy->abyxz', C, D, U, D, V)
-
-    #MC = ncon((B, C),([-1,1,-3], [-2,1,-4]))
     MC = contract('ijk,pjr->ipkr', B, C)
-    
-    #Tmp = ncon((MC, UC),([-1,-2,1,2], [1,2,-3,-4,-5]))
     Tmp = contract('ijkl,klabc->ijabc', MC, UC)
 
     del MC
     del UC
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
-    #G = ncon((G, st),([-1,-2,-3,1], [1,-4]))  # ** 
     G = contract('ijka,al->ijkl', G, st)
 
-
-    #DC = ncon((B, np.conjugate(U), A, np.conjugate(V), A),([1,-1,-5],[2,3,-2],[2,4,-4],[4,5,-3],[3,5,1]))
     DC  = contract('dzb,pix,pqa,qjy,ijd->zxyab', B, np.conjugate(U), A, np.conjugate(V), A)
     # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd 
     # B_dzb * U*_pix * A_ijd = BUA_zbpxj * A_pqa * V*_qjy --> DC_zxyab
     #DC =  ncon((B, np.conjugate(U), A),([1,-1,-2],[-3,2,-4],[2,-5,1]))
     #DC =  ncon((DC, A, np.conjugate(V)),([-1,-5,1, -2, 2],[1,3,-4],[3,2,-3])) 
-
-
-    #Tmp2 = ncon((DC, G),([-1,-2,-3,1,2], [1,2,-4,-5])) 
+ 
     Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
     del DC 
     A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
 
-    #MCprime = ncon((st2, MCprime),([-1,1], [1,-2,-3,-4])) # ** 
     MCprime = contract('ij,jklm->iklm', st2, MCprime)
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-    B = ncon((B, st3),([-1,-2, 1], [1,-3])) # ** 
+    B = contract('ijk,kp->ijp', B, st3)
 
     return A,B,C,D 
 
 
 if __name__ == "__main__":
+
+    if choice == 1:
+        beta = np.arange(1.0, 1.1, 0.05).tolist()
+        Nsteps = int(np.shape(beta)[0])
+        f = np.zeros(Nsteps)
+
+    if choice == 0:
+        temp = np.arange(4.5115, 4.5117, 0.0001).tolist()
+        Nsteps = int(np.shape(temp)[0])
+        f = np.zeros(Nsteps)
+
+    for p in range (0, Nsteps):
+
+        if choice == 0:
+            A, B, C, D = Z3d_Ising(1.0/temp[p])
+        if choice == 1:
+            A, B, C, D = Z3d_U1(beta[p],Dcut)
     
-    a = np.sqrt(np.cosh(beta))
-    b = np.sqrt(np.sinh(beta)) 
-    W = np.array([[a,b],[a,-b]])
-    Id = np.eye(2) 
-
-    A = np.einsum("ax, ay -> xya", W, W)
-    B = np.einsum("ab, az -> azb", Id, W)
-    C = np.einsum("bc, bz -> bzc", Id, W)
-    D = np.einsum("cy, cx -> cyx", W, W)
-
-
-    T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2]))
-    # Same as np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W) 
-    norm = np.max(T)
-    CU = np.log(norm)
-
-    div = np.sqrt(np.sqrt(norm))
-
-    A  /= div
-    B  /= div
-    C  /= div
-    D  /= div
-
- 
-    for iter in range (Niter):
-
-        A, B, C, D = coarse_graining(A,B,C,D)  
-        print ("Finished", iter+1, "out of", Niter , "steps of CG")
-        T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-        #T = ncon((A, B, C, D),([-1,-3,1], [1,-5,2],[2,-6,3], [3,-4,-2])) 
+        T = contract("ijk,kpq,qrs,stu->iujtpr", A, B, C, D)
+        # Same as np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W) 
         norm = np.max(T)
+        CU = np.log(norm)
 
         div = np.sqrt(np.sqrt(norm))
 
@@ -274,16 +254,71 @@ if __name__ == "__main__":
         B  /= div
         C  /= div
         D  /= div
-        CU += np.log(norm)/(2.0**(iter+1))
+
+ 
+        for iter in range (Niter):
+
+            A, B, C, D = coarse_graining(A,B,C,D)  
+            print ("Finished", iter+1, "of", Niter , "steps of CG")
+            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            norm = np.max(T)
+
+            div = np.sqrt(np.sqrt(norm))
+
+            A  /= div
+            B  /= div
+            C  /= div
+            D  /= div
+            CU += np.log(norm)/(2.0**(iter+1))
 
         
-        if iter == Niter-1:
+            if iter == Niter-1:
 
-            Z = contract('dfa,ahb,bic,cge,dfj,jhk,kim,mge', A, B, C, D, A, B, C, D) 
-            #Z = ncon((A, B, C, D, A, B, C, D),([4,6,1], [1,8,2],[2,9,3], [3,7,5], [4,6,10], [10,8,11],[11,9,12], [12,7,5]))   
-            Free = -Temp*(CU + (np.log(Z)/(2.0**Niter)))
-            print ("Free energy is ", round(Free,4), " @ T =", Temp, "with bond dimension", Dcut)
+                Z = contract('dfa,ahb,bic,cge,dfj,jhk,kim,mge', A, B, C, D, A, B, C, D)  
 
-        
+                if choice == 0:  
+                    Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
+                    f[p] = Free 
+                    print ("Free energy is ", round(Free,4), " @ T =", temp[p], "with bond dimension", Dcut)
+
+                if choice == 1:  
+                    Z_U1 = CU + (np.log(Z)/(2.0**Niter))
+                    f[p] = -Z_U1
+                    print (round(beta[p],4),round(-Z_U1,6))
+                
+
+    if choice == 0:
+
+        dx = temp[1]-temp[0] # Assuming equal spacing ...
+        dfdx = np.gradient(f, dx) 
+        f = plt.figure()
+        plt.plot(temp, dfdx, marker="*", color = "r")
+        plt.grid(True)
+        plt.title('3d classical Ising model using Triad TRG', fontsize=15)
+        plt.xlabel('T', fontsize=13)
+        plt.ylabel('df/dT', fontsize=13)
+        plt.show()   
+        f.savefig("plot1_ising.pdf", bbox_inches='tight')
+
+
+    if choice == 1:
+
+        dx = beta[1]-beta[0] # Assuming equal spacing ...
+        dfdx = np.gradient(f, dx) 
+        out = [] 
+        for i in range(0, len(dfdx)): 
+            out.append(dfdx[i] * beta[i] * (1.0/3.0)) 
+
+        f = plt.figure()
+        plt.plot(beta, out, marker="*", color = "r")
+        plt.grid(True)
+        plt.title('3d U(1) model using Triad TRG', fontsize=15)
+        plt.xlabel(r'$\beta$')
+        plt.ylabel('<S>', fontsize=13)
+        plt.show()   
+        f.savefig("plot1_U1.pdf", bbox_inches='tight')
+
+
+
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 

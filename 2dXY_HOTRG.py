@@ -16,7 +16,7 @@ from numpy import ndarray
 from scipy.sparse import random as sparse_random
 import time
 import datetime 
-from ncon import ncon
+from packages import ncon
 
 if len(sys.argv) < 4:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h> <Dbond> " )

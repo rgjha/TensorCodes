@@ -18,7 +18,7 @@ from sklearn.random_projection import sparse_random_matrix
 from sklearn.utils.extmath import randomized_svd
 import time
 import datetime 
-from ncon import ncon
+from packages import ncon
 
 startTime = time.time()
 #print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
