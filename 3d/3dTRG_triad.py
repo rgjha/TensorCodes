@@ -192,9 +192,16 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
     # UC_abyxz
     # Note that there is typo in Eq. (17) of arXiv:1912.02414
+    # Note that memory wise this is most expensive step. O(D^5) 
+    # Also, DC below. 
 
-    UC = contract('azc,cqp,pix -> azqix',C,D,U)
-    UC = contract('azqix,bji,qjy -> abyxz',UC,D,V)
+    #UC = contract('azc,cqp,pix -> azqix',C,D,U)
+    #UC = contract('azqix,bji,qjy -> abyxz',UC,D,V)
+
+    Tmp1 = contract('cqp,pix -> cqix',D,U)
+    Tmp2 = contract('bji,qjy -> biqy',D,V)
+    Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
+    UC = contract('azc,cxby -> abyxz',C,Tmp3)
 
     #UC = np.tensordot(C,D,axes=([2,0])) # azqp 
     #UC = np.tensordot(UC,U,axes=([3,0])) # azqix 
@@ -258,8 +265,6 @@ if __name__ == "__main__":
 
             A, B, C, D = coarse_graining(A,B,C,D)  
             print ("Finished", iter+1, "of", Niter , "steps of CG")
-            #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-            #norm = np.max(T)
             norm = np.max(A) * np.max(B) * np.max(C) * np.max(D) 
             div = np.sqrt(np.sqrt(norm))
 

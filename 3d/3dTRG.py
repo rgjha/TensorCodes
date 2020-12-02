@@ -2,6 +2,7 @@
 # Started: Dec 5, 2019
 # Free energy at T= 4.5115 is -3.51
 # Ref: https://arxiv.org/abs/1912.02414
+# Incomplete! HOTRG is too expensive in 3d! 
 
 import sys
 import math
