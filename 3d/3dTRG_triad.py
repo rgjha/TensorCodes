@@ -11,13 +11,13 @@ from math import sqrt
 import numpy as np
 import scipy as sp  
 from scipy import special
+from scipy.linalg import sqrtm
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
 from matplotlib import pyplot as plt
 import time
 import datetime
-#from packages import ncon
 from opt_einsum import contract
 
 
@@ -56,8 +56,8 @@ def tensorsvd(input,left,right,D):
         right_index_list.append(T.shape[i])
     ysize = np.prod(right_index_list)
     T = np.reshape(T,(xsize,ysize))
-    
-    U, s, V = np.linalg.svd(T,full_matrices = False)
+
+    U, s, V = sp.linalg.svd(T, full_matrices=False) 
     # Interchange between RSVD and usual SVD 
     #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
     
@@ -76,8 +76,8 @@ def tensorsvd(input,left,right,D):
 
 def Z3d_Ising(beta):
 
-    a = np.sqrt(np.cosh(beta))
-    b = np.sqrt(np.sinh(beta)) 
+    a = math.sqrt(np.cosh(beta))
+    b = math.sqrt(np.sinh(beta)) 
     W = np.array([[a,b],[a,-b]])
     Id = np.eye(2)
 
@@ -137,44 +137,40 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     C = in3
     D = in4 
 
-    S1 = contract('ijk,pjq->ipkq', A, np.conjugate(A))
-    a = np.shape(S1)[0] * np.shape(S1)[1]
-    b = np.shape(S1)[2] * np.shape(S1)[3]
-    S1 = np.reshape(S1,(a,b))
+    S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
+    ap = np.shape(S1)[0] * np.shape(S1)[1]
+    bp = np.shape(S1)[2] * np.shape(S1)[3]
+    S1 = np.reshape(S1,(ap,bp))
 
-    S2 = contract('ijk,pjq->ipkq', B, np.conjugate(B))
+    S2 = contract('dze,izj->diej', B, np.conjugate(B))
     a = np.shape(S2)[0] * np.shape(S2)[1]
     b = np.shape(S2)[2] * np.shape(S2)[3]
     S2 = np.reshape(S2,(a,b))
 
-    Tmp = contract('ijk,pjk->ip', D, np.conjugate(D))
-    R2 = contract('ijk,pqr,kr->ipjq', C, np.conjugate(C), Tmp)
+    Tmp = contract('fyx,iyx->fi', D, np.conjugate(D))
+    R2 = contract('ewf,ijk,fk->eiwj', C, np.conjugate(C), Tmp)
     a = np.shape(R2)[0] * np.shape(R2)[1]
     b = np.shape(R2)[2] * np.shape(R2)[3]
     R2mat = np.reshape(R2,(a,b))
 
-    Tmp = contract('ijkk->ij', R2)
-    R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp)
+    Tmp = contract('bizz->bi', R2)
+    R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
     Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
-
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
-    K = np.reshape(Kprime,(b,a,b,a))
-    U, s1, UL = tensorsvd(K,[0,1],[2,3],Dcut) 
 
-    UL = None
-    del UL
-
+    K = np.reshape(Kprime,(b,a,b,a))  # K_x1,x2,x3,x4         
+    U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut)) 
 
     # Now finding "V"
     S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
-    a = np.shape(S1)[0] * np.shape(S1)[1]
-    b = np.shape(S1)[2] * np.shape(S1)[3]
-    S1 = np.reshape(S1,(a,b))
+    ap = np.shape(S1)[0] * np.shape(S1)[1]
+    bp = np.shape(S1)[2] * np.shape(S1)[3]
+    S1 = np.reshape(S1,(ap,bp))
 
     Tmp = contract('ijkk->ij', R2)
     R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp)
@@ -184,56 +180,69 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     R3mat = np.reshape(R3,(a,b))
 
     Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
-    
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))
-    V, s1, VL = tensorsvd(K,[0,1],[2,3],Dcut)
+    V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)
 
-    # Free some arrays which are no longer needed 
-    del VL 
+    # Free some arrays which are no longer needed  
     del K
     del Kprime
     del S1 
 
     # UC_abyxz
     # Note that there is typo in Eq. (17) of arXiv:1912.02414
-    UC = contract('azc,cqp,pix,bji,qjy->abyxz', C, D, U, D, V)
+
+    UC = contract('azc,cqp,pix -> azqix',C,D,U)
+    UC = contract('azqix,bji,qjy -> abyxz',UC,D,V)
+
+    #UC = np.tensordot(C,D,axes=([2,0])) # azqp 
+    #UC = np.tensordot(UC,U,axes=([3,0])) # azqix 
+    #UC = np.tensordot(UC,D,axes=([3,2])) # azqxbj 
+    #UC = contract('azqxbj,qjy -> abyxz',UC,V)
+    #UC = np.tensordot(UC,V,axes=([2,0],[5,1])) # azqxbj * qjy --> azxby --> 0,3,4,2,1
+    
+    # M_new = np.tensordot(M_new,U,axes=([1,0])) # UM_ajcd * U_jb --> UMU_acdb
+
     MC = contract('ijk,pjr->ipkr', B, C)
     Tmp = contract('ijkl,klabc->ijabc', MC, UC)
 
     del MC
     del UC
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
-    G = contract('ijka,al->ijkl', G, st)
+    G = contract('ijka,al->ijkl', G, st)  
 
-    DC  = contract('dzb,pix,pqa,qjy,ijd->zxyab', B, np.conjugate(U), A, np.conjugate(V), A)
-    # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd 
-    # B_dzb * U*_pix * A_ijd = BUA_zbpxj * A_pqa * V*_qjy --> DC_zxyab
-    #DC =  ncon((B, np.conjugate(U), A),([1,-1,-2],[-3,2,-4],[2,-5,1]))
-    #DC =  ncon((DC, A, np.conjugate(V)),([-1,-5,1, -2, 2],[1,3,-4],[3,2,-3])) 
+    # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
+    Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
+    Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
+    DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
+    DC = contract('dzb,xayd->zxyab', B, DC)
  
     Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
-    del DC 
     A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
 
     MCprime = contract('ij,jklm->iklm', st2, MCprime)
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-    B = contract('ijk,kp->ijp', B, st3)
+
+    # Split singular piece here...
+    sing = sqrtm(st3) 
+    B = contract('ijk,kp->ijp', B, sing)
+    C = contract('kj,jip->kip', sing, C)
 
     return A,B,C,D 
 
 
 if __name__ == "__main__":
 
+
+    if choice == 0:
+        temp = np.arange(4.5115, 4.5116, 0.0001).tolist()
+        Nsteps = int(np.shape(temp)[0])
+        f = np.zeros(Nsteps)
+
     if choice == 1:
         beta = np.arange(1.0, 1.1, 0.05).tolist()
         Nsteps = int(np.shape(beta)[0])
-        f = np.zeros(Nsteps)
-
-    if choice == 0:
-        temp = np.arange(4.5115, 4.5117, 0.0001).tolist()
-        Nsteps = int(np.shape(temp)[0])
         f = np.zeros(Nsteps)
 
     for p in range (0, Nsteps):
@@ -243,38 +252,35 @@ if __name__ == "__main__":
         if choice == 1:
             A, B, C, D = Z3d_U1(beta[p],Dcut)
     
-        T = contract("ijk,kpq,qrs,stu->iujtpr", A, B, C, D)
-        # Same as np.einsum("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W) 
-        norm = np.max(T)
-        CU = np.log(norm)
+        CU = 0.0 
 
-        div = np.sqrt(np.sqrt(norm))
-
-        A  /= div
-        B  /= div
-        C  /= div
-        D  /= div
-
- 
         for iter in range (Niter):
 
             A, B, C, D = coarse_graining(A,B,C,D)  
             print ("Finished", iter+1, "of", Niter , "steps of CG")
-            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-            norm = np.max(T)
-
+            #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            #norm = np.max(T)
+            norm = np.max(A) * np.max(B) * np.max(C) * np.max(D) 
             div = np.sqrt(np.sqrt(norm))
 
             A  /= div
             B  /= div
             C  /= div
             D  /= div
-            CU += np.log(norm)/(2.0**(iter+1))
+            CU = CU + np.log(norm)/(2.0**(iter+1))
 
         
             if iter == Niter-1:
 
-                Z = contract('dfa,ahb,bic,cge,dfj,jhk,kim,mge', A, B, C, D, A, B, C, D)  
+                #Z = contract('dfa,ahb,bic,cge,dfj,jhk,kim,mge', A, B, C, D, np.conjugate(A), np.conjugate(B), np.conjugate(C), D)  
+
+                Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
+                Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
+                Tmp3 = contract('ahb,jhk->abjk',B,np.conjugate(B))
+                Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
+                Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
+                Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
+
 
                 if choice == 0:  
                     Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
@@ -285,9 +291,10 @@ if __name__ == "__main__":
                     Z_U1 = CU + (np.log(Z)/(2.0**Niter))
                     f[p] = -Z_U1
                     print (round(beta[p],4),round(-Z_U1,6))
-                
 
-    if choice == 0:
+    # Make plots if needed! 
+
+    if choice == 0 and Nsteps > 3:
 
         dx = temp[1]-temp[0] # Assuming equal spacing ...
         dfdx = np.gradient(f, dx) 
@@ -301,9 +308,9 @@ if __name__ == "__main__":
         f.savefig("plot1_ising.pdf", bbox_inches='tight')
 
 
-    if choice == 1:
+    if choice == 1 and Nsteps > 3:
 
-        dx = beta[1]-beta[0] # Assuming equal spacing ...
+        dx = beta[1]-beta[0]
         dfdx = np.gradient(f, dx) 
         out = [] 
         for i in range(0, len(dfdx)): 
@@ -319,6 +326,6 @@ if __name__ == "__main__":
         f.savefig("plot1_U1.pdf", bbox_inches='tight')
 
 
-
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+    
 
