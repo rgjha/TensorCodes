@@ -1,4 +1,4 @@
-STARTED:  2020-12-03 17:22:19
+STARTED:  2020-12-04 00:30:01
 Finished 1 of 15 steps of CG
 Finished 2 of 15 steps of CG
 Finished 3 of 15 steps of CG
@@ -14,12 +14,12 @@ Finished 12 of 15 steps of CG
 Finished 13 of 15 steps of CG
 Finished 14 of 15 steps of CG
 Finished 15 of 15 steps of CG
-Free energy is  -3.5073  @ T = 4.5115 with bond dimension 20
-COMPLETED:  2020-12-03 17:22:44
+Free energy is  -3.5068  @ T = 4.5115 with bond dimension 20
+COMPLETED:  2020-12-04 00:30:26
 
 ... 
 
-STARTED:  2020-12-03 17:23:26
+STARTED:  2020-12-04 00:30:35
 Finished 1 of 15 steps of CG
 Finished 2 of 15 steps of CG
 Finished 3 of 15 steps of CG
@@ -35,6 +35,6 @@ Finished 12 of 15 steps of CG
 Finished 13 of 15 steps of CG
 Finished 14 of 15 steps of CG
 Finished 15 of 15 steps of CG
-Free energy is  -3.5077  @ T = 4.5115 with bond dimension 25
-COMPLETED:  2020-12-03 17:25:08
+Free energy is  -3.5080  @ T = 4.5115 with bond dimension 25
+COMPLETED:  2020-12-04 00:32:09
 

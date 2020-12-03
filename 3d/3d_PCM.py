@@ -1,15 +1,11 @@
-# Tensor formulation of 3d model using triad method 
-# Free energy at T = 4.5115 is close to -3.51 
-# Ref: https://arxiv.org/abs/1912.02414
-# Now using "contract" which seems much faster than NCON
-# https://doi.org/10.21105/joss.00753
-# https://github.com/dgasmith/opt_einsum
+# Tensor formulation of 3d model PCM using triad method 
 
 import sys
 import math
 from math import sqrt
 import numpy as np
 import scipy as sp  
+import itertools 
 from scipy import special
 from scipy.linalg import sqrtm
 from numpy import linalg as LA
@@ -20,25 +16,86 @@ import time
 import datetime
 from opt_einsum import contract
 
-
+                          
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
-if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, System choice: 0 for Ising, 1 for U(1) model>")
+if len(sys.argv) < 5:
+  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, beta, r_max>")
   sys.exit(1)
 
 
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
-choice = int(sys.argv[3])
+beta = float(sys.argv[3])
+rmax = float(sys.argv[4])
+rep = [x for x in range (0, int(2.0*rmax)+1, 1)] 
+#dim = [x+1 for x in rep]      # 2r + 1                 
+N_r = int(sum(np.square([x+1 for x in rep]))) 
+A = np.zeros([N_r, N_r, 14])  
+B = np.zeros([N_r, N_r, N_r]) 
+C = np.zeros([N_r, N_r, N_r]) 
+D = np.zeros([N_r, N_r, N_r])  
+ 
+   
 
 
 def dagger(a):
 
     return np.conjugate(np.transpose(a))
 
+
+def index(a, b, c):
+
+    return int((a)*((a) + 1)*((2.0*a) + 1)/(6.0) + (a+2)*(a/2.0) + (a+1)*b + c)
+    # sum_{j=0}^{j=N} (j+1)^2 = (N+1)*(N+2)*(2*N+3)/(6.0) is used. 
+    # Note: f[N_] := 1/6 (1+Floor[2 N]) (2+Floor[2 N]) (3+2 Floor[2 N]); 
+
+
+def factorial(N):
+    if N < 0:
+        raise ValueError("N is negative !!! ")
+        return 9999
+    if math.floor(N) != N:
+        raise ValueError("N must be an exact integer !!! ")
+        return 9999 
+    if N+1 == N:
+        raise OverflowError("N is too large !!!")
+    result = 1
+    factor = 2
+    while factor <= N:
+        result *= factor
+        factor += 1
+    return result
+
+
+# Returns Clebsch-Gordon coefficients
+# Alternative : from sympy.physics.quantum.cg import CG 
+def CGC(j1, m1, j2, m2, j, m):
+
+    if (m == m1+m2) and (abs(j1 - j2) <= j <= (j1 + j2)) and (-j <= m <= j) and (-j1 <= m1 <= j1) and (-j2 <= m2 <= j2):
+
+        A = sqrt(float((2*j + 1)*factorial(j + j1 - j2)*factorial(j - j1 + j2)*factorial(j1 + j2 - j))/(factorial(j1 + j2 + j + 1)))
+        B = sqrt(factorial(j + m)*factorial(j - m)*factorial(j1 - m1)*factorial(j1 + m1)*factorial(j2 - m2)*factorial(j2 + m2))
+        C = A*B
+
+        dum = 0
+        lim = int(math.floor(abs(j + m + 1)))
+        for k in range(0, lim+2):
+
+            if (j1 + j2 >= j+k) and (j1 >= m1+k) and (j2 + m2 >= k) and (j + m1 + k >= j2) and (j + k >= j1 + m2):
+                dum += ((-1)**(k))/(factorial(k) \
+                *factorial(j1 + j2 - j - k)*factorial(j1 - m1 - k)*factorial(j2 + m2 - k)*factorial(j - j2 + m1 + k) \
+                *factorial(j - j1 - m2 +k))
+            else:
+                dum = dum   
+
+        C *= dum
+        return C
+
+    else:
+        return 0
 
 def tensorsvd(input,left,right,D):
     '''Reshape an input tensor into a rectangular matrix with first index corresponding
@@ -74,43 +131,8 @@ def tensorsvd(input,left,right,D):
         
     return U, s, V
 
-def Z3d_Ising(beta):
 
-    a = math.sqrt(np.cosh(beta))
-    b = math.sqrt(np.sinh(beta)) 
-    W = np.array([[a,b],[a,-b]])
-    Id = np.eye(2)
-
-    A = contract("ax, ay -> xya", W, W)
-    B = contract("ab, az -> azb", Id, W)
-    C = contract("bc, bz -> bzc", Id, W)
-    D = contract("cy, cx -> cyx", W, W)
-
-    return A, B, C, D
-
-
-def Z3d_XY(beta, h, Dn):
-
-    betah = beta*h 
-
-    for i in range (-Dn,Dn+1):
-        L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
-
-    out = contract("i,j,k,l,m,n->ijklmn", L, L, L, L, L, L)
-    for l in range (-Dn,Dn+1):
-        for r in range (-Dn,Dn+1):
-            for u in range (-Dn,Dn+1):
-                for d in range (-Dn,Dn+1):
-                    for f in range (-Dn,Dn+1):
-                        for b in range (-Dn,Dn+1):
-
-                            index = l+u+f-r-d-b
-                            out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
-
-    return out
-
-
-def Z3d_U1(beta, D):
+def Z3d_PCM(beta, D):
 
     A = np.zeros([D, D]) 
 
@@ -228,116 +250,118 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     return A,B,C,D 
 
 
+def makeA(rep):
+
+    m3 = []
+    m1 = [] 
+    n3 = [] 
+    n1 = [] 
+    M = [] 
+    N = []
+
+    for rp2, rp1 in itertools.product(rep, rep): 
+        for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
+
+            m3 = []
+            n3 = [] 
+            m1 = [] 
+            n1 = [] 
+            M = []
+            N = [] 
+
+            if rp2 == 0:
+                m3.append(0.0)
+                n3.append(0.0)
+            else: 
+                for x in [-rp2, rp2, 1]:
+                    m3.append(x/2.0) if x/2.0 not in m3 else m3
+                    n3.append(x/2.0) if x/2.0 not in n3 else n3
+
+            if rp1 == 0:
+                m1.append(0.0)
+                n1.append(0.0)
+            else: 
+                for x in [-rp1, rp1, 1]:
+                    m1.append(x/2.0) if x/2.0 not in m1 else m1
+                    n1.append(x/2.0) if x/2.0 not in n1 else n1
+
+            if R == 0:
+                M.append(0.0)
+                N.append(0.0)
+            else: 
+                for x in [-R, R, 1]:
+                    M.append(x/2.0) if x/2.0 not in M else M
+                    N.append(x/2.0) if x/2.0 not in N else N
+
+
+            #print ("r_x+2, m3, n3", rp2/2.0, m3, n3)   
+            #print ("r_x+1, m1, n1", rp1/2.0, m1, n1) 
+            #print ("R, M, N", R/2.0, M, N) 
+            #print ("r_x+2, r_x+1, R", rp2/2.0, rp1/2.0, R/2.0) 
+
+            for m1_e in m1:
+                for n1_e in n1:
+                    for m3_e in m3:
+                        for n3_e in n3:
+                            for M_e in M:
+                                for N_e in N:
+
+                                    i = index(rp1,m1_e,n1_e) 
+                                    j = index(rp2,m3_e,n3_e) 
+                                    k = index(R,M_e,N_e)
+                                    A[i][j][k] =  CGC((rp1/2.0), m1_e, (rp2/2.0), m3_e, (R/2.0), M_e) 
+                                    A[i][j][k] *= CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), N_e) 
+
+
+
+
+    return  A
+
+
 
 if __name__ == "__main__":
+ 
+
+    A = makeA(rep)
+    print ("Norm of A", LA.norm(A))
+    #B = makeA(rep)
+    #C = makeA(rep)
+    #D = makeA(rep)
 
 
-    if choice == 0:
-        temp = np.arange(4.5115, 4.5116, 0.0001).tolist()
-        Nsteps = int(np.shape(temp)[0])
-        f = np.zeros(Nsteps)
+    '''
+    CU = 0.0 
+    for iter in range (Niter):
 
-    if choice == 1:
-        beta = np.arange(1.0, 1.1, 0.05).tolist()
-        Nsteps = int(np.shape(beta)[0])
-        f = np.zeros(Nsteps)
+        A, B, C, D = coarse_graining(A,B,C,D)  
+        #print ("Finished", iter+1, "of", Niter , "steps of CG")
+        norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+        div = np.sqrt(np.sqrt(norm))
 
-    for p in range (0, Nsteps):
-        if choice == 0:
-            A, B, C, D = Z3d_Ising(1.0/temp[p])
-        if choice == 1:
-            A, B, C, D = Z3d_U1(beta[p],Dcut)
-    
-        CU = 0.0 
-
-        for iter in range (Niter):
-
-            A, B, C, D = coarse_graining(A,B,C,D)  
-            #print ("Finished", iter+1, "of", Niter , "steps of CG")
-            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
-            div = np.sqrt(np.sqrt(norm))
-
-            A  /= div
-            B  /= div
-            C  /= div
-            D  /= div
-            CU += np.log(norm)/(2.0**(iter+1))
+        A  /= div
+        B  /= div
+        C  /= div
+        D  /= div
+        CU += np.log(norm)/(2.0**(iter+1))
 
         
-            if iter == Niter-1:
+        if iter == Niter-1:
 
-                Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
-                Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
-                Tmp3 = contract('ahb,jhk->abjk',B,np.conjugate(B))
-                Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
-                Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
-                Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
-                # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
-
-
-                if choice == 0:  
-                    Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
-                    f[p] = -Free/temp[p] 
-                    print ("Free energy is ", round(Free,4), " @ T =", round(temp[p],4), "with bond dimension", Dcut)
-                    if round(temp[p],3) == 4.51:
-                        index = p 
-
-                if choice == 1:  
-                    Z_U1 = CU + (np.log(Z)/(2.0**Niter))
-                    f[p] = -Z_U1
-                    print (round(beta[p],4),round(-Z_U1,6))
-
-    # Make plots if needed! 
-
-    if choice == 0 and Nsteps > 3:
-
-        dx = temp[1]-temp[0] # Assuming equal spacing ...
-        dfdx = np.gradient(f, dx) 
-        d2fdx2 = np.gradient(dfdx, dx) 
-        out = [] 
-        for i in range(0, len(dfdx)): 
-            out.append(dfdx[i] * temp[i] * temp[i]) 
-        out1 = [] 
-        for i in range(0, len(d2fdx2)):
-            out1.append(-d2fdx2[i] * temp[i] * temp[i] * temp[i] * temp[i])
-        print ("Internal energy = ", out[index], "at T = ", temp[index])
-
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
-
-        f = plt.figure()
-        fig, ax1 = plt.subplots()
-        color = 'tab:red'
-        ax1.set_xlabel('T',fontsize=13)
-        ax1.set_ylabel('U', color=color,fontsize=13)
-        ax1.plot(temp, out, marker="*", color=color)
-        ax1.tick_params(axis='y', labelcolor=color)
-
-        ax2 = ax1.twinx() 
-        color = 'tab:blue'
-        ax2.set_ylabel('Cv', color=color,fontsize=13) 
-        ax2.plot(temp, out1, marker="o", color=color)
-        plt.grid(True)
-        ax2.tick_params(axis='y', labelcolor=color)
-        plt.title(r"3d classical Ising model using Triad TRG",fontsize=16, color='black')
-        fig.tight_layout()
-        plt.show()
+            Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
+            Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
+            Tmp3 = contract('ahb,jhk->abjk',B,np.conjugate(B))
+            Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
+            Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
+            Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
+            # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
 
 
-    if choice == 1 and Nsteps > 3:
+            if choice == 0:  
+                Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
+                print ("Free energy is ", round(Free,4), " @ T =", round(temp[p],4), "with bond dimension", Dcut)
+  
 
-        dx = beta[1]-beta[0]
-        dfdx = np.gradient(f, dx) 
-        out = [] 
-        for i in range(0, len(dfdx)): 
-            out.append(dfdx[i] * beta[i] * (1.0/3.0)) 
-        f = plt.figure()
-        plt.plot(beta, out, marker="*", color = "r")
-        plt.grid(True)
-        plt.title('3d U(1) model using Triad TRG', fontsize=15)
-        plt.xlabel(r'$\beta$')
-        plt.ylabel('<S>', fontsize=13)
-        plt.show()   
+    '''
 
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
