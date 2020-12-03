@@ -1,5 +1,5 @@
 # Tensor formulation of 3d model using triad method 
-# Free energy at T = 4.5115 is -3.51 
+# Free energy at T = 4.5115 is close to -3.51 
 # Ref: https://arxiv.org/abs/1912.02414
 # Now using "contract" which seems much faster than NCON
 # https://doi.org/10.21105/joss.00753
@@ -137,49 +137,50 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     C = in3
     D = in4 
 
-    S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
-    ap = np.shape(S1)[0] * np.shape(S1)[1]
-    bp = np.shape(S1)[2] * np.shape(S1)[3]
-    S1 = np.reshape(S1,(ap,bp))
 
     S2 = contract('dze,izj->diej', B, np.conjugate(B))
     a = np.shape(S2)[0] * np.shape(S2)[1]
     b = np.shape(S2)[2] * np.shape(S2)[3]
     S2 = np.reshape(S2,(a,b))
-
     Tmp = contract('fyx,iyx->fi', D, np.conjugate(D))
     R2 = contract('ewf,ijk,fk->eiwj', C, np.conjugate(C), Tmp)
     a = np.shape(R2)[0] * np.shape(R2)[1]
     b = np.shape(R2)[2] * np.shape(R2)[3]
     R2mat = np.reshape(R2,(a,b))
 
+    S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
+    a = np.shape(S1)[0] * np.shape(S1)[1]
+    b = np.shape(S1)[2] * np.shape(S1)[3]
+    S1 = np.reshape(S1,(a,b))
     Tmp = contract('bizz->bi', R2)
     R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-    Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
+    #Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
+    Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
+    # Surprisingly, the above step is prone to some dependence on 
+    # whethere we use 'matmul', 'dot', '@' and 'contract' 
+
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
-
     K = np.reshape(Kprime,(b,a,b,a))  # K_x1,x2,x3,x4         
     U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut)) 
 
+
     # Now finding "V"
     S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
-    ap = np.shape(S1)[0] * np.shape(S1)[1]
-    bp = np.shape(S1)[2] * np.shape(S1)[3]
-    S1 = np.reshape(S1,(ap,bp))
-
-    Tmp = contract('ijkk->ij', R2)
-    R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp)
-
+    a = np.shape(S1)[0] * np.shape(S1)[1]
+    b = np.shape(S1)[2] * np.shape(S1)[3]
+    S1 = np.reshape(S1,(a,b))
+    R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp) # Use 'Tmp' from above
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-    Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
+
+    Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))
@@ -195,21 +196,10 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     # Note that memory wise this is most expensive step. O(D^5) 
     # Also, DC below. 
 
-    #UC = contract('azc,cqp,pix -> azqix',C,D,U)
-    #UC = contract('azqix,bji,qjy -> abyxz',UC,D,V)
-
     Tmp1 = contract('cqp,pix -> cqix',D,U)
     Tmp2 = contract('bji,qjy -> biqy',D,V)
     Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
     UC = contract('azc,cxby -> abyxz',C,Tmp3)
-
-    #UC = np.tensordot(C,D,axes=([2,0])) # azqp 
-    #UC = np.tensordot(UC,U,axes=([3,0])) # azqix 
-    #UC = np.tensordot(UC,D,axes=([3,2])) # azqxbj 
-    #UC = contract('azqxbj,qjy -> abyxz',UC,V)
-    #UC = np.tensordot(UC,V,axes=([2,0],[5,1])) # azqxbj * qjy --> azxby --> 0,3,4,2,1
-    
-    # M_new = np.tensordot(M_new,U,axes=([1,0])) # UM_ajcd * U_jb --> UMU_acdb
 
     MC = contract('ijk,pjr->ipkr', B, C)
     Tmp = contract('ijkl,klabc->ijabc', MC, UC)
@@ -231,12 +221,13 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     MCprime = contract('ij,jklm->iklm', st2, MCprime)
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
 
-    # Split singular piece here...
+    # Split singular piece here!
     sing = sqrtm(st3) 
     B = contract('ijk,kp->ijp', B, sing)
     C = contract('kj,jip->kip', sing, C)
 
     return A,B,C,D 
+
 
 
 if __name__ == "__main__":
@@ -253,7 +244,6 @@ if __name__ == "__main__":
         f = np.zeros(Nsteps)
 
     for p in range (0, Nsteps):
-
         if choice == 0:
             A, B, C, D = Z3d_Ising(1.0/temp[p])
         if choice == 1:
@@ -265,19 +255,17 @@ if __name__ == "__main__":
 
             A, B, C, D = coarse_graining(A,B,C,D)  
             print ("Finished", iter+1, "of", Niter , "steps of CG")
-            norm = np.max(A) * np.max(B) * np.max(C) * np.max(D) 
+            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
             div = np.sqrt(np.sqrt(norm))
 
             A  /= div
             B  /= div
             C  /= div
             D  /= div
-            CU = CU + np.log(norm)/(2.0**(iter+1))
+            CU += np.log(norm)/(2.0**(iter+1))
 
         
             if iter == Niter-1:
-
-                #Z = contract('dfa,ahb,bic,cge,dfj,jhk,kim,mge', A, B, C, D, np.conjugate(A), np.conjugate(B), np.conjugate(C), D)  
 
                 Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
                 Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
@@ -285,12 +273,15 @@ if __name__ == "__main__":
                 Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
                 Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
                 Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
+                # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
 
 
                 if choice == 0:  
                     Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
-                    f[p] = Free 
-                    print ("Free energy is ", round(Free,4), " @ T =", temp[p], "with bond dimension", Dcut)
+                    f[p] = -Free/temp[p] 
+                    print ("Free energy is ", round(Free,4), " @ T =", round(temp[p],4), "with bond dimension", Dcut)
+                    if round(temp[p],3) == 4.51:
+                        index = p 
 
                 if choice == 1:  
                     Z_U1 = CU + (np.log(Z)/(2.0**Niter))
@@ -303,8 +294,12 @@ if __name__ == "__main__":
 
         dx = temp[1]-temp[0] # Assuming equal spacing ...
         dfdx = np.gradient(f, dx) 
+        out = [] 
+        for i in range(0, len(dfdx)): 
+            out.append(dfdx[i] * temp[i] * temp[i]) 
+        print ("Internal energy = ", out[index], "at T = ", temp[index])
         f = plt.figure()
-        plt.plot(temp, dfdx, marker="*", color = "r")
+        plt.plot(temp, out, marker="*", color = "r")
         plt.grid(True)
         plt.title('3d classical Ising model using Triad TRG', fontsize=15)
         plt.xlabel('T', fontsize=13)
@@ -320,7 +315,6 @@ if __name__ == "__main__":
         out = [] 
         for i in range(0, len(dfdx)): 
             out.append(dfdx[i] * beta[i] * (1.0/3.0)) 
-
         f = plt.figure()
         plt.plot(beta, out, marker="*", color = "r")
         plt.grid(True)

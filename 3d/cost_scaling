@@ -1,0 +1,13 @@
+D	Time (in sec.)
+# On Perimeter's HPC [access to ~192 Gb memory] 
+
+20	24
+25	49
+30	134
+35	313
+40	709
+44	1155
+47	1679
+55	4486
+62	9486 
+67	16780
