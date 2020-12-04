@@ -1,4 +1,5 @@
 # Tensor formulation of 3d model PCM using triad method 
+
 import sys
 import math
 from math import sqrt
@@ -29,7 +30,7 @@ beta = float(sys.argv[3])
 rmax = float(sys.argv[4])
 rep = [x for x in range (0, int(2.0*rmax)+1, 1)]                  
 N_r = int(sum(np.square([x+1 for x in rep]))) 
-# N_r = 5, (14), (30), (55), 91, (140), 204, (285), (385), 506, 650, (819) 
+# N_r = 5, (14), (30), (55), 91, (140), 204, (285), (385), 506, 650, (819), 1015, 1240, 1496, (1785), 2109 
 Rrep = [] 
 
 if rmax == 0:
@@ -40,18 +41,22 @@ if rmax == 0.5:
     A = np.zeros([N_r, N_r, 14])  
     B = np.zeros([14, N_r, 30]) 
     C = np.zeros([30, N_r, 55])
+    D = np.zeros([N_r, N_r, 14])
 if rmax == 1.0:
     A = np.zeros([N_r, N_r, 55])  
     B = np.zeros([55, N_r, 140])
-    C = np.zeros([140, N_r, 140])
+    C = np.zeros([140, N_r, 285])
+    D = np.zeros([N_r, N_r, 55])
 if rmax == 1.5:
     A = np.zeros([N_r, N_r, 140])  
     B = np.zeros([140, N_r, 385])
-    C = np.zeros([385, N_r, 385])
+    C = np.zeros([385, N_r, 819])
+    D = np.zeros([N_r, N_r, 140])
 if rmax == 2.0:
     A = np.zeros([N_r, N_r, 285])  
     B = np.zeros([285, N_r, 819])
-    C = np.zeros([819, N_r, 819])
+    C = np.zeros([819, N_r, 1785])
+    D = np.zeros([N_r, N_r, 285])
 
 
 
@@ -141,8 +146,6 @@ def tensorsvd(input,left,right,D):
     T = np.reshape(T,(xsize,ysize))
 
     U, s, V = sp.linalg.svd(T, full_matrices=False) 
-    # Interchange between RSVD and usual SVD 
-    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -156,26 +159,6 @@ def tensorsvd(input,left,right,D):
     V = np.reshape(V,[D]+right_index_list)
         
     return U, s, V
-
-
-def Z3d_PCM(beta, D):
-
-    A = np.zeros([D, D]) 
-
-    for i in range (D):
-        for j in range (D):
-            A[i][j] = sp.special.iv(i-j, beta)
-
-    W = LA.cholesky(A) 
-    #out = contract("ia, ib, ic, id, ie, if -> abcdef", W, W, W, W, W, W)
-
-    Id = np.eye(D)
-    A = contract("ax, ay -> xya", W, W)
-    B = contract("ab, az -> azb", Id, W)
-    C = contract("bc, bz -> bzc", Id, W)
-    D = contract("cy, cx -> cyx", W, W)
-
-    return A,B,C,D
 
     
 def coarse_graining(in1, in2, in3, in4,impure=False):
@@ -206,18 +189,13 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-    #Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
-    # Surprisingly, the above step is prone to some dependence on 
-    # whethere we use 'matmul', 'dot', '@' and 'contract' 
 
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
-    K = np.reshape(Kprime,(b,a,b,a))  # K_x1,x2,x3,x4         
+    K = np.reshape(Kprime,(b,a,b,a))         
     U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut)) 
 
-
-    # Now finding "V"
     S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
@@ -233,8 +211,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     b = int(np.sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))
     V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)
-
-    # Free some arrays which are no longer needed  
+ 
     del K
     del Kprime
     del S1 
@@ -278,24 +255,17 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 def makeA(rep):
 
-    m3 = []
-    m1 = [] 
-    n3 = [] 
-    n1 = [] 
-    M = [] 
-    N = []
 
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
-        
-            #print ("r+2, r+1, R", rp2/2.0, rp1/2.0, R/2.0)
 
             m3 = []
             n3 = [] 
             m1 = [] 
             n1 = [] 
-            M = []
-            N = [] 
+            M = [] 
+            N = []
+        
 
             if rp2 == 0:
                 m3.append(0.0)
@@ -322,13 +292,6 @@ def makeA(rep):
                     N.append(x/2.0) if x/2.0 not in N else N
 
 
-            #print ("r_x+2, m3, n3", rp2/2.0, m3, n3)   
-            #print ("r_x+1, m1, n1", rp1/2.0, m1, n1) 
-            #print ("R, M, N", R/2.0, M, N) 
-            #print ("r_x+2, r_x+1, R", rp2/2.0, rp1/2.0, R/2.0) 
-
-            #print (m3, m1, M)
-
             for m3_e in m3:
                 for n3_e in n3:
                     for m1_e in m1:
@@ -340,36 +303,25 @@ def makeA(rep):
                                     j = index(rp1,m1_e,n1_e) 
                                     k = index(R,M_e,N_e)
 
-                                    #print (m3_e, n3_e, m1_e, n1_e, M_e, N_e)
-                                    A[i][j][k] =  CGC((rp1/2.0), m1_e, (R/2.0), M_e, (rp2/2.0), m3_e) 
+                                    A[i][j][k] =  CGC((rp1/2.0), m1_e, (rp2/2.0), m3_e,(R/2.0), M_e) 
                                     A[i][j][k] *= CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), N_e) 
-                                    A[i][j][k] *= np.sqrt(Fr((rp1/2.0), beta) * Fr((rp1/2.0), beta)) 
+                                    A[i][j][k] = np.sqrt(Fr((rp1/2.0), beta) * Fr((rp2/2.0), beta)) 
 
     return  A
 
 
 def makeB(rep):
 
-    m3 = []
-    m1 = [] 
-    n3 = [] 
-    n1 = [] 
-    M = [] 
-    N = []
+    
     Rrep = [] 
-
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
             if R not in Rrep:
                 Rrep.append(R)
 
-    #print ("Rrep", Rrep)
-    #print ("Normal rep", rep)
 
     for R, rp3 in itertools.product(Rrep, rep):
-
         for Rprime in range(abs(R-rp3), abs(R+rp3)+1, 2):
-            #print ("R, r+3, Rprime", R/2.0, rp3/2.0, Rprime/2.0)
 
             M = [] 
             N = []
@@ -403,10 +355,6 @@ def makeB(rep):
                     Nprime.append(x/2.0) if x/2.0 not in Nprime else Nprime
 
 
-            #kmax = 0.0
-            #imax = 0.0 
-
-
             for M_e in M:
                 for N_e in N:
                     for m5_e in m5:
@@ -418,21 +366,10 @@ def makeB(rep):
                                     j = index(rp3,m5_e,n5_e) 
                                     k = index(Rprime,Mprime_e,Nprime_e)
 
-                                    #print ("Index", i, j, k)
-
-                                    #if kmax < k: 
-                                    #    kmax = k 
-                                    #if imax < i: 
-                                    #    imax = i
-
-                                    #print ((R/2.0), M_e, (rp3/2.0), m5_e, (Rprime/2.0), Mprime_e)
                                     B[i][j][k] =  CGC((R/2.0), M_e, (rp3/2.0), m5_e, (Rprime/2.0), Mprime_e) 
                                     B[i][j][k] *= CGC((R/2.0), N_e, (rp3/2.0), n5_e, (Rprime/2.0), Nprime_e) 
                                     B[i][j][k] *= Fr((rp3/2.0), beta)
                                     B[i][j][k] /= np.sqrt(Rprime+1.0) 
-                                    #B[i][j][k] *= np.sqrt(Fr((rp3/2.0), beta))*np.sqrt(Fr((rp3/2.0), beta))
-                                    #B[i][j][k] = 0.0 
-                                    #print (imax+1, kmax+1) 
 
 
     return  B,Rrep
@@ -440,21 +377,8 @@ def makeB(rep):
 
 def makeC(rep, Rrep):
 
-    m3 = []
-    m1 = [] 
-    n3 = [] 
-    n1 = [] 
-    M = [] 
-    N = [] 
+   
     Rprimerep = []
-
-    '''
-    for rp2, rp1 in itertools.product(rep, rep):
-        for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
-            if R not in Rrep:
-                Rrep.append(R)
-                '''
-
     for R, rp3 in itertools.product(Rrep, rep):
         for Rprime in range(abs(R-rp3), abs(R+rp3)+1, 2):
             if Rprime not in Rprimerep:
@@ -496,10 +420,6 @@ def makeC(rep, Rrep):
                     Ndoubleprime.append(x/2.0) if x/2.0 not in Ndoubleprime else Ndoubleprime
 
 
-            kmax = 0.0
-            imax = 0.0 
-
-
             for Mprime_e in Mprime:
                 for Nprime_e in Nprime:
                     for m6_e in m6:
@@ -516,19 +436,82 @@ def makeC(rep, Rrep):
                                     C[i][j][k] *= Fr((rm3/2.0), beta)
                                     C[i][j][k] /= np.sqrt(Rprime+1.0) 
 
+
     return  C
+
+
+
+def makeD(rep):
+
+    
+    for rm1, rm2 in itertools.product(rep, rep):
+        for Rdoubleprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
+
+            m2 = []
+            n2 = [] 
+            m4 = [] 
+            n4 = [] 
+            Mdoubleprime = []
+            Ndoubleprime = [] 
+        
+
+            if rm1 == 0:
+                m2.append(0.0)
+                n2.append(0.0)
+            else: 
+                for x in range (-rm1, rm1+1, 2):
+                    m2.append(x/2.0) if x/2.0 not in m2 else m2
+                    n2.append(x/2.0) if x/2.0 not in n2 else n2
+
+            if rm2 == 0:
+                m4.append(0.0)
+                n4.append(0.0)
+            else: 
+                for x in range (-rm2, rm2+1, 2):
+                    m4.append(x/2.0) if x/2.0 not in m4 else m4
+                    n4.append(x/2.0) if x/2.0 not in n4 else n4
+
+            if Rdoubleprime == 0:
+                Mdoubleprime.append(0.0)
+                Ndoubleprime.append(0.0)
+            else: 
+                for x in range (-Rdoubleprime, Rdoubleprime+1, 2):
+                    Mdoubleprime.append(x/2.0) if x/2.0 not in Mdoubleprime else Mdoubleprime
+                    Ndoubleprime.append(x/2.0) if x/2.0 not in Mdoubleprime else Mdoubleprime
+
+
+            imax = 0.0
+            kmax = 0.0 
+
+            for m2_e in m2:
+                for n2_e in n2:
+                    for m4_e in m4:
+                        for n4_e in n4:
+                            for Mdoubleprime_e in Mdoubleprime:
+                                for Ndoubleprime_e in Ndoubleprime:
+
+                                    i = index(rm1,m2_e,n2_e) 
+                                    j = index(rm2,m4_e,n4_e) 
+                                    k = index(Rdoubleprime,Mdoubleprime_e,Ndoubleprime_e)
+
+                                    D[i][j][k] =  CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdoubleprime/2.0), Mdoubleprime_e) 
+                                    D[i][j][k] *= CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdoubleprime/2.0), Ndoubleprime_e)  
+                                    D[i][j][k] *= np.sqrt(Fr((rm1/2.0), beta) * Fr((rm2/2.0), beta)) 
+
+    return  D
 
 
 if __name__ == "__main__":
  
 
     A = makeA(rep)
-    #print ("Norm of A", LA.norm(A))
+    print ("Norm of A", LA.norm(A))
     B, Rrep = makeB(rep)
-    #print ("Norm of B", LA.norm(B))
+    print ("Norm of B", LA.norm(B))
     C = makeC(rep, Rrep)
     print ("Norm of C", LA.norm(C))
-    #D = makeA(rep)
+    D = makeD(rep)
+    print ("Norm of D", LA.norm(D))
 
 
     '''
