@@ -1,5 +1,4 @@
 # Tensor formulation of 3d model PCM using triad method 
-
 import sys
 import math
 from math import sqrt
@@ -15,8 +14,7 @@ from matplotlib import pyplot as plt
 import time
 import datetime
 from opt_einsum import contract
-
-                          
+                     
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
@@ -25,7 +23,6 @@ if len(sys.argv) < 5:
   print("Usage:", str(sys.argv[0]), "<Niter, Dcut, beta, r_max>")
   sys.exit(1)
 
-
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
 beta = float(sys.argv[3])
@@ -33,12 +30,21 @@ rmax = float(sys.argv[4])
 rep = [x for x in range (0, int(2.0*rmax)+1, 1)] 
 #dim = [x+1 for x in rep]      # 2r + 1                 
 N_r = int(sum(np.square([x+1 for x in rep]))) 
-A = np.zeros([N_r, N_r, 14])  
-B = np.zeros([N_r, N_r, N_r]) 
-C = np.zeros([N_r, N_r, N_r]) 
-D = np.zeros([N_r, N_r, N_r])  
- 
-   
+Rrep = [] 
+
+if rmax == 0:
+    print ("Trivial!")
+    sys.exit(1) 
+
+if rmax == 0.5:
+    A = B = C = D = np.zeros([N_r, N_r, 14])  
+if rmax == 1.0:
+    A = B = C = D = np.zeros([N_r, N_r, 55])  
+if rmax == 1.5:
+    A = B = C = D = np.zeros([N_r, N_r, 140])  
+if rmax == 2.0:
+    A = B = C = D = np.zeros([N_r, N_r, 285])  
+
 
 
 def dagger(a):
@@ -55,10 +61,10 @@ def index(a, b, c):
 
 def factorial(N):
     if N < 0:
-        raise ValueError("N is negative !!! ")
+        raise ValueError("N is negative !!! ", N)
         return 9999
     if math.floor(N) != N:
-        raise ValueError("N must be an exact integer !!! ")
+        raise ValueError("N must be an exact integer !!! ", N)
         return 9999 
     if N+1 == N:
         raise OverflowError("N is too large !!!")
@@ -70,7 +76,7 @@ def factorial(N):
     return result
 
 
-# Returns Clebsch-Gordon coefficients
+# Returns SU(2) Clebsch-Gordon coefficients 
 # Alternative : from sympy.physics.quantum.cg import CG 
 def CGC(j1, m1, j2, m2, j, m):
 
@@ -250,6 +256,10 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     return A,B,C,D 
 
 
+def remove_duplicates(l):
+    return list(set(l))
+
+
 def makeA(rep):
 
     m3 = []
@@ -259,39 +269,45 @@ def makeA(rep):
     M = [] 
     N = []
 
-    for rp2, rp1 in itertools.product(rep, rep): 
+    for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
+            if R not in Rrep:
+                Rrep.append(R)
 
-            m3 = []
-            n3 = [] 
-            m1 = [] 
-            n1 = [] 
-            M = []
-            N = [] 
+    for rp2, rp1, R in itertools.product(rep, rep, Rrep): 
+        
+        #print ("r+2, r+1, R", rp2/2.0, rp1/2.0, R/2.0)
 
-            if rp2 == 0:
-                m3.append(0.0)
-                n3.append(0.0)
-            else: 
-                for x in [-rp2, rp2, 1]:
-                    m3.append(x/2.0) if x/2.0 not in m3 else m3
-                    n3.append(x/2.0) if x/2.0 not in n3 else n3
+        m3 = []
+        n3 = [] 
+        m1 = [] 
+        n1 = [] 
+        M = []
+        N = [] 
 
-            if rp1 == 0:
-                m1.append(0.0)
-                n1.append(0.0)
-            else: 
-                for x in [-rp1, rp1, 1]:
-                    m1.append(x/2.0) if x/2.0 not in m1 else m1
-                    n1.append(x/2.0) if x/2.0 not in n1 else n1
+        if rp2 == 0:
+            m3.append(0.0)
+            n3.append(0.0)
+        else: 
+            for x in range (-rp2, rp2+1, 2):
+                m3.append(x/2.0) if x/2.0 not in m3 else m3
+                n3.append(x/2.0) if x/2.0 not in n3 else n3
 
-            if R == 0:
-                M.append(0.0)
-                N.append(0.0)
-            else: 
-                for x in [-R, R, 1]:
-                    M.append(x/2.0) if x/2.0 not in M else M
-                    N.append(x/2.0) if x/2.0 not in N else N
+        if rp1 == 0:
+            m1.append(0.0)
+            n1.append(0.0)
+        else: 
+            for x in range (-rp1, rp1+1, 2):
+                m1.append(x/2.0) if x/2.0 not in m1 else m1
+                n1.append(x/2.0) if x/2.0 not in n1 else n1
+
+        if R == 0:
+            M.append(0.0)
+            N.append(0.0)
+        else: 
+            for x in range (-R, R+1, 2):
+                M.append(x/2.0) if x/2.0 not in M else M
+                N.append(x/2.0) if x/2.0 not in N else N
 
 
             #print ("r_x+2, m3, n3", rp2/2.0, m3, n3)   
@@ -299,21 +315,22 @@ def makeA(rep):
             #print ("R, M, N", R/2.0, M, N) 
             #print ("r_x+2, r_x+1, R", rp2/2.0, rp1/2.0, R/2.0) 
 
-            for m1_e in m1:
-                for n1_e in n1:
-                    for m3_e in m3:
-                        for n3_e in n3:
-                            for M_e in M:
-                                for N_e in N:
+            #print (m3, m1, M)
 
-                                    i = index(rp1,m1_e,n1_e) 
-                                    j = index(rp2,m3_e,n3_e) 
-                                    k = index(R,M_e,N_e)
-                                    A[i][j][k] =  CGC((rp1/2.0), m1_e, (rp2/2.0), m3_e, (R/2.0), M_e) 
-                                    A[i][j][k] *= CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), N_e) 
+        for m3_e in m3:
+            for n3_e in n3:
+                for m1_e in m1:
+                    for n1_e in n1:
+                        for M_e in M:
+                            for N_e in N:
 
+                                i = index(rp1,m3_e,n3_e) 
+                                j = index(rp2,m1_e,n1_e) 
+                                k = index(R,M_e,N_e)
 
-
+                                    #print (m3_e, n3_e, m1_e, n1_e, M_e, N_e)
+                                A[i][j][k] =  CGC((rp1/2.0), m1_e, (R/2.0), M_e, (rp2/2.0), m3_e) 
+                                A[i][j][k] *= CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), N_e) 
 
     return  A
 
