@@ -325,7 +325,7 @@ def makeB(rep, Rrep):
                 B[i][j][k] /= sqrt(Rprime+1.0) 
 
 
-    return  B,Rrep,Rprimerep
+    return  B,Rprimerep
 
 
 def makeC(rep, Rprimerep, Rdprimerep):
@@ -413,9 +413,9 @@ if __name__ == "__main__":
  
 
     A, Rrep = makeA(rep)
-    B, Rrep, Rprimerep = makeB(rep, Rrep)
+    B, Rprimerep = makeB(rep, Rrep)
     D, Rdprimerep = makeD(rep)
-    C = makeC(rep, Rprimerep,Rdprimerep)
+    C = makeC(rep, Rprimerep, Rdprimerep)
     print ("Norm of A", LA.norm(A))
     print ("Norm of B", LA.norm(B))
     print ("Norm of C", LA.norm(C))
