@@ -233,12 +233,12 @@ if __name__ == "__main__":
 
 
     if choice == 0:
-        temp = np.arange(3.50, 5.00, ??).tolist()
+        temp = np.arange(3.50, 5.00, 0.10).tolist()
         Nsteps = int(np.shape(temp)[0])
         f = np.zeros(Nsteps)
 
     if choice == 1:
-        beta = np.arange(1.0, 1.1, 0.05).tolist()
+        beta = np.arange(1.0, 2.05, 0.05).tolist()
         Nsteps = int(np.shape(beta)[0])
         f = np.zeros(Nsteps)
 
@@ -331,15 +331,22 @@ if __name__ == "__main__":
         out = [] 
         for i in range(0, len(dfdx)): 
             out.append(dfdx[i] * beta[i] * (1.0/3.0)) 
+
+        plt.rc('text', usetex=True)
+        plt.rc('font', family='serif')
         f = plt.figure()
-        plt.plot(beta, out, marker="*", color = "r")
+        fig, ax1 = plt.subplots()
+        color = 'tab:red'
+        ax1.set_xlabel(r'$\beta$',fontsize=13)
+        ax1.set_ylabel('S', color=color,fontsize=13)
+        ax1.plot(beta, out, marker="*", color=color)
+        ax1.tick_params(axis='y', labelcolor=color)
         plt.grid(True)
-        plt.title('3d U(1) model using Triad TRG', fontsize=15)
-        plt.xlabel(r'$\beta$')
-        plt.ylabel('<S>', fontsize=13)
-        plt.show()   
+        plt.title(r"3d U(1) model using Triad TRG",fontsize=16, color='black')
+        fig.tight_layout()
+        plt.show()
+  
 
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
     
-
