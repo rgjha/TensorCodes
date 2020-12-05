@@ -7,10 +7,7 @@ import numpy as np
 import scipy as sp  
 import itertools 
 from scipy import special
-from scipy.linalg import sqrtm
 from numpy import linalg as LA
-from numpy.linalg import matrix_power
-from numpy import ndarray
 from matplotlib import pyplot as plt
 import time
 import datetime
@@ -32,6 +29,7 @@ rep = [x for x in range (0, int(2.0*rmax)+1, 1)]
 N_r = int(sum(np.square([x+1 for x in rep]))) 
 # N_r = 5, (14), (30), (55), 91, (140), 204, (285), (385), 506, 650, (819), 1015, 1240, 1496, (1785), 2109 
 Rrep = [] 
+Rprimerep = []
 
 if rmax == 0:
     print ("Trivial!")
@@ -58,11 +56,6 @@ if rmax == 2.0:
     C = np.zeros([819, N_r, 1785])
     D = np.zeros([N_r, N_r, 285])
 
-
-
-def dagger(a):
-
-    return np.conjugate(np.transpose(a))
 
 
 def index(a, b, c):
@@ -128,6 +121,7 @@ def CGC(j1, m1, j2, m2, j, m):
     else:
         return 0
 
+
 def tensorsvd(input,left,right,D):
     '''Reshape an input tensor into a rectangular matrix with first index corresponding
     to left set of indices and second index corresponding to right set of indices. Do SVD
@@ -160,7 +154,7 @@ def tensorsvd(input,left,right,D):
         
     return U, s, V
 
-    
+  
 def coarse_graining(in1, in2, in3, in4,impure=False):
 
     A = in1
@@ -191,8 +185,8 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
 
-    a = int(np.sqrt(np.shape(Kprime)[0]))
-    b = int(np.sqrt(np.shape(Kprime)[1]))
+    a = int(sqrt(np.shape(Kprime)[0]))
+    b = int(sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))         
     U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut)) 
 
@@ -207,8 +201,8 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
-    a = int(np.sqrt(np.shape(Kprime)[0]))
-    b = int(np.sqrt(np.shape(Kprime)[1]))
+    a = int(sqrt(np.shape(Kprime)[0]))
+    b = int(sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))
     V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)
  
@@ -216,24 +210,16 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     del Kprime
     del S1 
 
-    # UC_abyxz
-    # Note that there is typo in Eq. (17) of arXiv:1912.02414
-    # Note that memory wise this is most expensive step. O(D^5) 
-    # Also, DC below. 
-
     Tmp1 = contract('cqp,pix -> cqix',D,U)
     Tmp2 = contract('bji,qjy -> biqy',D,V)
     Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
     
-    #UC = contract('azc,cxby -> abyxz',C,Tmp3)
     MC = contract('ijk,pjr->ipkr', B, C)
-    # Tmp = contract('ijkl,klabc->ijabc', MC, UC)
     Tmp = contract('ijab,azc,cxby->ijyxz', MC, C, Tmp3)
 
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
     G = contract('ijka,al->ijkl', G, st)  
 
-    # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
     Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
     Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
     DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
@@ -281,13 +267,11 @@ def makeA(rep):
 
             for m3_e, n3_e, m1_e, n1_e, M_e, N_e in itertools.product(m3, n3, m1, n1, M, N):
 
-                i = index(rp2,m3_e,n3_e) 
-                j = index(rp1,m1_e,n1_e) 
-                k = index(R,M_e,N_e)
+                i, j, k = index(rp2,m3_e,n3_e), index(rp1,m1_e,n1_e), index(R,M_e,N_e)  
 
                 A[i][j][k] =  CGC((rp1/2.0), m1_e, (rp2/2.0), m3_e,(R/2.0), M_e) 
                 A[i][j][k] *= CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), N_e) 
-                A[i][j][k] = np.sqrt(Fr((rp1/2.0), beta) * Fr((rp2/2.0), beta))
+                A[i][j][k] *= sqrt(Fr((rp1/2.0), beta) * Fr((rp2/2.0), beta))
 
 
     return  A
@@ -295,8 +279,7 @@ def makeA(rep):
 
 def makeB(rep):
 
-    
-    Rrep = [] 
+
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
             if R not in Rrep:
@@ -328,14 +311,12 @@ def makeB(rep):
 
             for M_e, N_e, m5_e, n5_e, Mprime_e, Nprime_e in itertools.product(M, N, m5, n5, Mprime, Nprime):
 
-                i = index(R,M_e,N_e) 
-                j = index(rp3,m5_e,n5_e) 
-                k = index(Rprime,Mprime_e,Nprime_e)
+                i, j, k = index(R,M_e,N_e), index(rp3,m5_e,n5_e), index(Rprime,Mprime_e,Nprime_e) 
 
                 B[i][j][k] =  CGC((R/2.0), M_e, (rp3/2.0), m5_e, (Rprime/2.0), Mprime_e) 
                 B[i][j][k] *= CGC((R/2.0), N_e, (rp3/2.0), n5_e, (Rprime/2.0), Nprime_e) 
-                B[i][j][k] *= Fr((rp3/2.0), beta)
-                B[i][j][k] /= np.sqrt(Rprime+1.0) 
+                B[i][j][k] *= sqrt(Fr((rp3/2.0), beta))
+                B[i][j][k] /= sqrt(Rprime+1.0) 
 
 
     return  B,Rrep
@@ -344,7 +325,6 @@ def makeB(rep):
 def makeC(rep, Rrep):
 
    
-    Rprimerep = []
     for R, rp3 in itertools.product(Rrep, rep):
         for Rprime in range(abs(R-rp3), abs(R+rp3)+1, 2):
             if Rprime not in Rprimerep:
@@ -358,8 +338,8 @@ def makeC(rep, Rrep):
             Nprime = []
             m6 = []
             n6 = [] 
-            Mdoubleprime = []
-            Ndoubleprime = [] 
+            Mdprime = []
+            Ndprime = [] 
 
             for x in range (-Rprime, Rprime+1, 2):
                 Mprime.append(x/2.0) if x/2.0 not in Mprime else Mprime
@@ -370,20 +350,18 @@ def makeC(rep, Rrep):
                 n6.append(x/2.0) if x/2.0 not in n6 else n6
 
             for x in range (-Rdoubleprime, Rdoubleprime+1, 2):
-                Mdoubleprime.append(x/2.0) if x/2.0 not in Mdoubleprime else Mdoubleprime
-                Ndoubleprime.append(x/2.0) if x/2.0 not in Ndoubleprime else Ndoubleprime
+                Mdprime.append(x/2.0) if x/2.0 not in Mdprime else Mdprime
+                Ndprime.append(x/2.0) if x/2.0 not in Ndprime else Ndprime
 
 
-            for Mprime_e, Nprime_e, m6_e, n6_e, Mdoubleprime_e, Ndoubleprime_e in itertools.product(Mprime, Nprime, m6, n6, Mdoubleprime, Ndoubleprime):
+            for Mprime_e, Nprime_e, m6_e, n6_e, Mdprime_e, Ndprime_e in itertools.product(Mprime, Nprime, m6, n6, Mdprime, Ndprime):
 
-                i = index(Rprime,Mprime_e,Nprime_e) 
-                j = index(rm3,m6_e,n6_e) 
-                k = index(Rdoubleprime,Mdoubleprime_e,Ndoubleprime_e)
+                i, j, k = index(Rprime,Mprime_e,Nprime_e), index(rm3,m6_e,n6_e), index(Rdoubleprime,Mdprime_e,Ndprime_e)  
 
-                C[i][j][k] =  CGC((Rdoubleprime/2.0), Mdoubleprime_e, (rm3/2.0), m6_e, (Rprime/2.0), Nprime_e) 
-                C[i][j][k] *= CGC((Rdoubleprime/2.0), Ndoubleprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e) 
-                C[i][j][k] *= Fr((rm3/2.0), beta)
-                C[i][j][k] /= np.sqrt(Rprime+1.0) 
+                C[i][j][k] =  CGC((Rdoubleprime/2.0), Mdprime_e, (rm3/2.0), m6_e, (Rprime/2.0), Nprime_e) 
+                C[i][j][k] *= CGC((Rdoubleprime/2.0), Ndprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e) 
+                C[i][j][k] *= sqrt(Fr((rm3/2.0), beta))
+                C[i][j][k] /= sqrt(Rprime+1.0) 
 
     return  C
 
@@ -391,7 +369,7 @@ def makeC(rep, Rrep):
 
 def makeD(rep):
 
-    
+ 
     for rm1, rm2 in itertools.product(rep, rep):
         for Rdoubleprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
 
@@ -399,10 +377,10 @@ def makeD(rep):
             n2 = [] 
             m4 = [] 
             n4 = [] 
-            Mdoubleprime = []
-            Ndoubleprime = [] 
+            Mdprime = []
+            Ndprime = [] 
         
-
+        
             for x in range (-rm1, rm1+1, 2):
                 m2.append(x/2.0) if x/2.0 not in m2 else m2
                 n2.append(x/2.0) if x/2.0 not in n2 else n2
@@ -412,18 +390,16 @@ def makeD(rep):
                 n4.append(x/2.0) if x/2.0 not in n4 else n4
 
             for x in range (-Rdoubleprime, Rdoubleprime+1, 2):
-                Mdoubleprime.append(x/2.0) if x/2.0 not in Mdoubleprime else Mdoubleprime
-                Ndoubleprime.append(x/2.0) if x/2.0 not in Mdoubleprime else Mdoubleprime
+                Mdprime.append(x/2.0) if x/2.0 not in Mdprime else Mdprime
+                Ndprime.append(x/2.0) if x/2.0 not in Ndprime else Ndprime
 
-            for m2_e, n2_e, m4_e, n4_e, Mdoubleprime_e, Ndoubleprime_e in itertools.product(m2, n2, m4, n4, Mdoubleprime, Ndoubleprime):
 
-                i = index(rm1,m2_e,n2_e) 
-                j = index(rm2,m4_e,n4_e) 
-                k = index(Rdoubleprime,Mdoubleprime_e,Ndoubleprime_e)
+            for m2_e, n2_e, m4_e, n4_e, Mdprime_e, Ndprime_e in itertools.product(m2, n2, m4, n4, Mdprime, Ndprime):
 
-                D[i][j][k] =  CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdoubleprime/2.0), Mdoubleprime_e) 
-                D[i][j][k] *= CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdoubleprime/2.0), Ndoubleprime_e)  
-                D[i][j][k] *= np.sqrt(Fr((rm1/2.0), beta) * Fr((rm2/2.0), beta)) 
+                i, j, k = index(rm1,m2_e,n2_e), index(rm2,m4_e,n4_e), index(Rdoubleprime,Mdprime_e,Ndprime_e)
+                D[i][j][k] =  CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdoubleprime/2.0), Mdprime_e) 
+                D[i][j][k] *= CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdoubleprime/2.0), Ndprime_e)  
+                D[i][j][k] *= sqrt(Fr((rm1/2.0), beta) * Fr((rm2/2.0), beta)) 
 
     return  D
 
@@ -448,7 +424,7 @@ if __name__ == "__main__":
         A, B, C, D = coarse_graining(A,B,C,D)  
         #print ("Finished", iter+1, "of", Niter , "steps of CG")
         norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
-        div = np.sqrt(np.sqrt(norm))
+        div = sqrt(sqrt(norm))
 
         A  /= div
         B  /= div

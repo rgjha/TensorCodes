@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
 
     if choice == 0:
-        temp = np.arange(4.5115, 4.5116, 0.0001).tolist()
+        temp = np.arange(3.50, 5.00, ??).tolist()
         Nsteps = int(np.shape(temp)[0])
         f = np.zeros(Nsteps)
 
@@ -279,7 +279,7 @@ if __name__ == "__main__":
                     Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
                     f[p] = -Free/temp[p] 
                     print ("Free energy is ", round(Free,4), " @ T =", round(temp[p],4), "with bond dimension", Dcut)
-                    if round(temp[p],3) == 4.51:
+                    if round(temp[p],4) == 4.5115:
                         index = p 
 
                 if choice == 1:  
@@ -299,8 +299,8 @@ if __name__ == "__main__":
             out.append(dfdx[i] * temp[i] * temp[i]) 
         out1 = [] 
         for i in range(0, len(d2fdx2)):
-            out1.append(-d2fdx2[i] * temp[i] * temp[i] * temp[i] * temp[i])
-        print ("Internal energy = ", out[index], "at T = ", temp[index])
+            out1.append(d2fdx2[i] * temp[i] * temp[i] * temp[i] * temp[i])
+        #print ("Internal energy = ", out[index], "at T = ", temp[index])
 
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
