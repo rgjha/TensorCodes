@@ -7,6 +7,7 @@ import numpy as np
 import scipy as sp  
 import itertools 
 from scipy import special
+from scipy.linalg import sqrtm
 from numpy import linalg as LA
 from matplotlib import pyplot as plt
 import time
@@ -17,17 +18,16 @@ startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
-if len(sys.argv) < 5:
-  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, beta, r_max>")
+if len(sys.argv) < 4:
+  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, r_max>")
   sys.exit(1)
 
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
-beta = float(sys.argv[3])
-rmax = float(sys.argv[4])
+rmax = float(sys.argv[3])
 rep = [x for x in range (0, int(2.0*rmax)+1, 1)]                  
 N_r = int(sum(np.square([x+1 for x in rep]))) 
-# N_r = 5, (14), (30), (55), 91, (140), 204, (285), (385), 506, 650, (819), 1015, 1240, 1496, (1785), 2109 
+# N_r = 5, (14), (30), (55), 91, (140), 204, (285), (385), 506, 650, (819), 1015, 1240, 1496, 1785, 2109 
 Rrep = [] 
 Rprimerep = []
 Rdprimerep = []
@@ -35,28 +35,6 @@ Rdprimerep = []
 if rmax == 0:
     print ("Trivial!")
     sys.exit(1) 
-
-if rmax == 0.5:
-    A = np.zeros([N_r, N_r, 14])  
-    B = np.zeros([14, N_r, 30]) 
-    C = np.zeros([30, N_r, 55])
-    D = np.zeros([N_r, N_r, 14])
-if rmax == 1.0:
-    A = np.zeros([N_r, N_r, 55])  
-    B = np.zeros([55, N_r, 140])
-    C = np.zeros([140, N_r, 285])
-    D = np.zeros([N_r, N_r, 55])
-if rmax == 1.5:
-    A = np.zeros([N_r, N_r, 140])  
-    B = np.zeros([140, N_r, 385])
-    C = np.zeros([385, N_r, 819])
-    D = np.zeros([N_r, N_r, 140])
-if rmax == 2.0:
-    A = np.zeros([N_r, N_r, 285])  
-    B = np.zeros([285, N_r, 819])
-    C = np.zeros([819, N_r, 1785])
-    D = np.zeros([N_r, N_r, 285])
-
 
 
 def index(a, b, c):
@@ -163,7 +141,6 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     C = in3
     D = in4 
 
-
     S2 = contract('dze,izj->diej', B, np.conjugate(B))
     a = np.shape(S2)[0] * np.shape(S2)[1]
     b = np.shape(S2)[2] * np.shape(S2)[3]
@@ -240,16 +217,18 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     return A,B,C,D 
 
 
-def makeA(rep):
+def makeA(rep, beta):
+
+    if rmax == 0.50: A = np.zeros([N_r, N_r, 14])
+    if rmax == 1.00: A = np.zeros([N_r, N_r, 55])
+    if rmax == 1.50: A = np.zeros([N_r, N_r, 140])
+    if rmax == 2.00: A = np.zeros([N_r, N_r, 285])
+
 
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
-            if R not in Rrep:
-                Rrep.append(R)
 
-
-    for rp2, rp1 in itertools.product(rep, rep):
-        for R in Rrep:
+            #print ("Reps for A,", rp2/2.0, rp1/2.0, R/2.0)
 
             m3 = []
             n3 = [] 
@@ -280,20 +259,27 @@ def makeA(rep):
                 A[i][j][k] *= sqrt(Fr((rp1/2.0), beta) * Fr((rp2/2.0), beta))
 
 
-    return  A, Rrep
+    return  A
 
 
-def makeB(rep, Rrep):
+def makeB(rep, beta):
+
+    if rmax == 0.50: B = np.zeros([14, N_r, 30])
+    if rmax == 1.00: B = np.zeros([55, N_r, 140])
+    if rmax == 1.50: B = np.zeros([140, N_r, 385])
+    if rmax == 2.00: B = np.zeros([285, N_r, 819])
+
+    for rp2, rp1 in itertools.product(rep, rep):
+        for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
+            if R not in Rrep:
+                Rrep.append(R)
 
 
     for R, rp3 in itertools.product(Rrep, rep):
         for Rprime in range(abs(R-rp3), abs(R+rp3)+1, 2):
-            if Rprime not in Rprimerep:
-                Rprimerep.append(Rprime)
 
-    for R, rp3 in itertools.product(Rrep, rep):
-        for Rprime in Rprimerep:
 
+            #print ("Reps for B,", R/2.0, rp3/2.0, Rprime/2.0)
 
             M = [] 
             N = []
@@ -325,15 +311,29 @@ def makeB(rep, Rrep):
                 B[i][j][k] /= sqrt(Rprime+1.0) 
 
 
-    return  B,Rprimerep
+    return  B
 
 
-def makeC(rep, Rprimerep, Rdprimerep):
+def makeC(rep, beta):
+
+    if rmax == 0.50: C = np.zeros([30, N_r, 14])
+    if rmax == 1.00: C = np.zeros([140, N_r, 55])
+    if rmax == 1.50: C = np.zeros([385, N_r, 140])
+    if rmax == 2.00: C = np.zeros([819, N_r, 285])
 
 
-    for Rprime, rm3 in itertools.product(Rprimerep, rep):
-        for Rdprime in Rdprimerep:
-            
+    for rm1, rm2 in itertools.product(rep, rep):
+        for Rdprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
+            if Rdprime not in Rdprimerep:
+                Rdprimerep.append(Rdprime)
+
+
+    for Rdprime, rm3 in itertools.product(Rdprimerep, rep):
+        for Rprime in range(abs(Rdprime-rm3), abs(Rdprime+rm3)+1, 2):  
+
+            #print ("Reps for C,", Rdprime/2.0, rm3/2.0, Rprime/2.0)
+
+
             Mprime = [] 
             Nprime = []
             m6 = []
@@ -353,7 +353,6 @@ def makeC(rep, Rprimerep, Rdprimerep):
                 Mdprime.append(x/2.0) if x/2.0 not in Mdprime else Mdprime
                 Ndprime.append(x/2.0) if x/2.0 not in Ndprime else Ndprime
 
-
             for Mprime_e, Nprime_e, m6_e, n6_e, Mdprime_e, Ndprime_e in itertools.product(Mprime, Nprime, m6, n6, Mdprime, Ndprime):
 
                 i, j, k = index(Rprime,Mprime_e,Nprime_e), index(rm3,m6_e,n6_e), index(Rdprime,Mdprime_e,Ndprime_e)  
@@ -367,16 +366,18 @@ def makeC(rep, Rprimerep, Rdprimerep):
 
 
 
-def makeD(rep):
+def makeD(rep, beta):
+
+    if rmax == 0.50: D = np.zeros([14, N_r, N_r])
+    if rmax == 1.00: D = np.zeros([55, N_r, N_r])
+    if rmax == 1.50: D = np.zeros([140, N_r, N_r])
+    if rmax == 2.00: D = np.zeros([285, N_r, N_r])
+
 
     for rm1, rm2 in itertools.product(rep, rep):
         for Rdprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
-            if Rdprime not in Rdprimerep:
-                Rdprimerep.append(Rdprime)
 
- 
-    for rm1, rm2 in itertools.product(rep, rep):
-        for Rdprime in Rdprimerep:
+            #print ("Reps for D,", rm1/2.0, rm2/2.0, Rdprime/2.0)
 
             m2 = []
             n2 = [] 
@@ -401,62 +402,77 @@ def makeD(rep):
 
             for m2_e, n2_e, m4_e, n4_e, Mdprime_e, Ndprime_e in itertools.product(m2, n2, m4, n4, Mdprime, Ndprime):
 
-                i, j, k = index(rm1,m2_e,n2_e), index(rm2,m4_e,n4_e), index(Rdprime,Mdprime_e,Ndprime_e)
+                i, j, k = index(Rdprime,Mdprime_e,Ndprime_e), index(rm1,m2_e,n2_e), index(rm2,m4_e,n4_e) 
                 D[i][j][k] =  CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdprime/2.0), Mdprime_e) 
                 D[i][j][k] *= CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdprime/2.0), Ndprime_e)  
                 D[i][j][k] *= sqrt(Fr((rm1/2.0), beta) * Fr((rm2/2.0), beta)) 
 
-    return  D,Rdprimerep
+    return  D
 
 
 if __name__ == "__main__":
- 
 
-    A, Rrep = makeA(rep)
-    B, Rprimerep = makeB(rep, Rrep)
-    D, Rdprimerep = makeD(rep)
-    C = makeC(rep, Rprimerep, Rdprimerep)
-    print ("Norm of A", LA.norm(A))
-    print ("Norm of B", LA.norm(B))
-    print ("Norm of C", LA.norm(C))
-    print ("Norm of D", LA.norm(D))
+
+    beta = np.arange(0.05, 2.0, 0.05).tolist()
+    Nsteps = int(np.shape(beta)[0])
+    data = np.zeros(Nsteps)
+
+    for p in range (0, Nsteps):
+
+        A = makeA(rep, beta[p])
+        B = makeB(rep, beta[p])
+        D = makeD(rep, beta[p])
+        C = makeC(rep, beta[p])
+        #print ("Norm of A", LA.norm(A))
+        #print ("Norm of B", LA.norm(B))
+        #print ("Norm of C", LA.norm(C))
+        #print ("Norm of D", LA.norm(D))
     
+    
+        CU = 0.0 
+        for iter in range (Niter):
 
+            A, B, C, D = coarse_graining(A,B,C,D)  
+            #print ("Finished", iter+1, "of", Niter , "steps of CG")
+            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            div = sqrt(sqrt(norm))
 
-    '''
-    CU = 0.0 
-    for iter in range (Niter):
-
-        A, B, C, D = coarse_graining(A,B,C,D)  
-        #print ("Finished", iter+1, "of", Niter , "steps of CG")
-        norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
-        div = sqrt(sqrt(norm))
-
-        A  /= div
-        B  /= div
-        C  /= div
-        D  /= div
-        CU += np.log(norm)/(2.0**(iter+1))
+            A  /= div
+            B  /= div
+            C  /= div
+            D  /= div
+            CU += np.log(norm)/(2.0**(iter+1))
 
         
-        if iter == Niter-1:
+            if iter == Niter-1:
 
-            Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
-            Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
-            Tmp3 = contract('ahb,jhk->abjk',B,np.conjugate(B))
-            Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
-            Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
-            Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
-            # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
-
-
-            if choice == 0:  
-                Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
-                print ("Free energy is ", round(Free,4), " @ T =", round(temp[p],4), "with bond dimension", Dcut)
+                Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
+                Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
+                Tmp3 = contract('ahb,jhk->abjk',B,np.conjugate(B))
+                Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
+                Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
+                Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
+                # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
   
+                Free = -(1.0/beta[p])*(CU + (np.log(Z)/(2.0**Niter)))
+                data[p] = beta[p]*Free 
+                print ("Free energy is ", round(Free,4), " @ beta =", round(beta[p],4), "with bond dimension", Dcut)
 
-    '''
-
+    dx = beta[1]-beta[0]
+    dfdx = np.gradient(data, dx) 
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
+    f = plt.figure()
+    fig, ax1 = plt.subplots()
+    color = 'tab:red'
+    ax1.set_xlabel(r'$\beta$',fontsize=13)
+    ax1.set_ylabel('S', color=color,fontsize=13)
+    ax1.plot(beta, dfdx, marker="*", color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+    plt.grid(True)
+    plt.title(r"3d SU(2) PCM model using Triad TRG",fontsize=16, color='black')
+    fig.tight_layout()
+    plt.show()
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
     

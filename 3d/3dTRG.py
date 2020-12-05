@@ -10,6 +10,7 @@ from math import sqrt
 import numpy as np
 import scipy as sp  
 from scipy import special
+from scipy.linalg import sqrtm
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
