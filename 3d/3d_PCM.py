@@ -30,6 +30,7 @@ N_r = int(sum(np.square([x+1 for x in rep])))
 # N_r = 5, (14), (30), (55), 91, (140), 204, (285), (385), 506, 650, (819), 1015, 1240, 1496, (1785), 2109 
 Rrep = [] 
 Rprimerep = []
+Rdprimerep = []
 
 if rmax == 0:
     print ("Trivial!")
@@ -241,9 +242,14 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 def makeA(rep):
 
-
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
+            if R not in Rrep:
+                Rrep.append(R)
+
+
+    for rp2, rp1 in itertools.product(rep, rep):
+        for R in Rrep:
 
             m3 = []
             n3 = [] 
@@ -274,20 +280,20 @@ def makeA(rep):
                 A[i][j][k] *= sqrt(Fr((rp1/2.0), beta) * Fr((rp2/2.0), beta))
 
 
-    return  A
+    return  A, Rrep
 
 
-def makeB(rep):
-
-
-    for rp2, rp1 in itertools.product(rep, rep):
-        for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
-            if R not in Rrep:
-                Rrep.append(R)
+def makeB(rep, Rrep):
 
 
     for R, rp3 in itertools.product(Rrep, rep):
         for Rprime in range(abs(R-rp3), abs(R+rp3)+1, 2):
+            if Rprime not in Rprimerep:
+                Rprimerep.append(Rprime)
+
+    for R, rp3 in itertools.product(Rrep, rep):
+        for Rprime in Rprimerep:
+
 
             M = [] 
             N = []
@@ -319,20 +325,14 @@ def makeB(rep):
                 B[i][j][k] /= sqrt(Rprime+1.0) 
 
 
-    return  B,Rrep
+    return  B,Rrep,Rprimerep
 
 
-def makeC(rep, Rrep):
-
-   
-    for R, rp3 in itertools.product(Rrep, rep):
-        for Rprime in range(abs(R-rp3), abs(R+rp3)+1, 2):
-            if Rprime not in Rprimerep:
-                Rprimerep.append(Rprime)
+def makeC(rep, Rprimerep, Rdprimerep):
 
 
     for Rprime, rm3 in itertools.product(Rprimerep, rep):
-        for Rdoubleprime in range(abs(Rprime-rm3), abs(Rprime+rm3)+1, 2):
+        for Rdprime in Rdprimerep:
             
             Mprime = [] 
             Nprime = []
@@ -349,17 +349,17 @@ def makeC(rep, Rrep):
                 m6.append(x/2.0) if x/2.0 not in m6 else m6
                 n6.append(x/2.0) if x/2.0 not in n6 else n6
 
-            for x in range (-Rdoubleprime, Rdoubleprime+1, 2):
+            for x in range (-Rdprime, Rdprime+1, 2):
                 Mdprime.append(x/2.0) if x/2.0 not in Mdprime else Mdprime
                 Ndprime.append(x/2.0) if x/2.0 not in Ndprime else Ndprime
 
 
             for Mprime_e, Nprime_e, m6_e, n6_e, Mdprime_e, Ndprime_e in itertools.product(Mprime, Nprime, m6, n6, Mdprime, Ndprime):
 
-                i, j, k = index(Rprime,Mprime_e,Nprime_e), index(rm3,m6_e,n6_e), index(Rdoubleprime,Mdprime_e,Ndprime_e)  
+                i, j, k = index(Rprime,Mprime_e,Nprime_e), index(rm3,m6_e,n6_e), index(Rdprime,Mdprime_e,Ndprime_e)  
 
-                C[i][j][k] =  CGC((Rdoubleprime/2.0), Mdprime_e, (rm3/2.0), m6_e, (Rprime/2.0), Nprime_e) 
-                C[i][j][k] *= CGC((Rdoubleprime/2.0), Ndprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e) 
+                C[i][j][k] =  CGC((Rdprime/2.0), Mdprime_e, (rm3/2.0), m6_e, (Rprime/2.0), Nprime_e) 
+                C[i][j][k] *= CGC((Rdprime/2.0), Ndprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e) 
                 C[i][j][k] *= sqrt(Fr((rm3/2.0), beta))
                 C[i][j][k] /= sqrt(Rprime+1.0) 
 
@@ -369,9 +369,14 @@ def makeC(rep, Rrep):
 
 def makeD(rep):
 
+    for rm1, rm2 in itertools.product(rep, rep):
+        for Rdprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
+            if Rdprime not in Rdprimerep:
+                Rdprimerep.append(Rdprime)
+
  
     for rm1, rm2 in itertools.product(rep, rep):
-        for Rdoubleprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
+        for Rdprime in Rdprimerep:
 
             m2 = []
             n2 = [] 
@@ -389,32 +394,33 @@ def makeD(rep):
                 m4.append(x/2.0) if x/2.0 not in m4 else m4
                 n4.append(x/2.0) if x/2.0 not in n4 else n4
 
-            for x in range (-Rdoubleprime, Rdoubleprime+1, 2):
+            for x in range (-Rdprime, Rdprime+1, 2):
                 Mdprime.append(x/2.0) if x/2.0 not in Mdprime else Mdprime
                 Ndprime.append(x/2.0) if x/2.0 not in Ndprime else Ndprime
 
 
             for m2_e, n2_e, m4_e, n4_e, Mdprime_e, Ndprime_e in itertools.product(m2, n2, m4, n4, Mdprime, Ndprime):
 
-                i, j, k = index(rm1,m2_e,n2_e), index(rm2,m4_e,n4_e), index(Rdoubleprime,Mdprime_e,Ndprime_e)
-                D[i][j][k] =  CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdoubleprime/2.0), Mdprime_e) 
-                D[i][j][k] *= CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdoubleprime/2.0), Ndprime_e)  
+                i, j, k = index(rm1,m2_e,n2_e), index(rm2,m4_e,n4_e), index(Rdprime,Mdprime_e,Ndprime_e)
+                D[i][j][k] =  CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdprime/2.0), Mdprime_e) 
+                D[i][j][k] *= CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdprime/2.0), Ndprime_e)  
                 D[i][j][k] *= sqrt(Fr((rm1/2.0), beta) * Fr((rm2/2.0), beta)) 
 
-    return  D
+    return  D,Rdprimerep
 
 
 if __name__ == "__main__":
  
 
-    A = makeA(rep)
+    A, Rrep = makeA(rep)
+    B, Rrep, Rprimerep = makeB(rep, Rrep)
+    D, Rdprimerep = makeD(rep)
+    C = makeC(rep, Rprimerep,Rdprimerep)
     print ("Norm of A", LA.norm(A))
-    B, Rrep = makeB(rep)
     print ("Norm of B", LA.norm(B))
-    C = makeC(rep, Rrep)
     print ("Norm of C", LA.norm(C))
-    D = makeD(rep)
     print ("Norm of D", LA.norm(D))
+    
 
 
     '''
