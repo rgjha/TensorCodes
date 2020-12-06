@@ -25,9 +25,14 @@ if len(sys.argv) < 4:
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
 rmax = float(sys.argv[3])
-rep = [x for x in range (0, int(2.0*rmax)+1, 1)]                  
+rep = [x for x in range (0, int(2.0*rmax)+1, 1)]       
+rep1 = [x for x in range (0, int(4.0*rmax)+1, 1)]       
+rep2 = [x for x in range (0, int(6.0*rmax)+1, 1)]      
 N_r = int(sum(np.square([x+1 for x in rep]))) 
 # N_r = 5, (14), (30), (55), 91, (140), 204, (285), (385), 506, 650, (819), 1015, 1240, 1496, 1785, 2109 
+N_r_p = int(sum(np.square([x+1 for x in rep1])))
+N_r_pp = int(sum(np.square([x+1 for x in rep2])))
+
 Rrep = [] 
 Rprimerep = []
 Rdprimerep = []
@@ -172,7 +177,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
-    R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp) # Use 'Tmp' from above
+    R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp)
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
@@ -219,10 +224,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 def makeA(rep, beta):
 
-    if rmax == 0.50: A = np.zeros([N_r, N_r, 14])
-    if rmax == 1.00: A = np.zeros([N_r, N_r, 55])
-    if rmax == 1.50: A = np.zeros([N_r, N_r, 140])
-    if rmax == 2.00: A = np.zeros([N_r, N_r, 285])
+    A = np.zeros([N_r, N_r, N_r_p])
 
 
     for rp2, rp1 in itertools.product(rep, rep):
@@ -264,10 +266,7 @@ def makeA(rep, beta):
 
 def makeB(rep, beta):
 
-    if rmax == 0.50: B = np.zeros([14, N_r, 30])
-    if rmax == 1.00: B = np.zeros([55, N_r, 140])
-    if rmax == 1.50: B = np.zeros([140, N_r, 385])
-    if rmax == 2.00: B = np.zeros([285, N_r, 819])
+    B = np.zeros([N_r_p, N_r, N_r_pp])
 
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
@@ -316,11 +315,7 @@ def makeB(rep, beta):
 
 def makeC(rep, beta):
 
-    if rmax == 0.50: C = np.zeros([30, N_r, 14])
-    if rmax == 1.00: C = np.zeros([140, N_r, 55])
-    if rmax == 1.50: C = np.zeros([385, N_r, 140])
-    if rmax == 2.00: C = np.zeros([819, N_r, 285])
-
+    C = np.zeros([N_r_pp, N_r, N_r_p])
 
     for rm1, rm2 in itertools.product(rep, rep):
         for Rdprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
@@ -368,11 +363,7 @@ def makeC(rep, beta):
 
 def makeD(rep, beta):
 
-    if rmax == 0.50: D = np.zeros([14, N_r, N_r])
-    if rmax == 1.00: D = np.zeros([55, N_r, N_r])
-    if rmax == 1.50: D = np.zeros([140, N_r, N_r])
-    if rmax == 2.00: D = np.zeros([285, N_r, N_r])
-
+    D = np.zeros([N_r_p, N_r, N_r])
 
     for rm1, rm2 in itertools.product(rep, rep):
         for Rdprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
@@ -413,20 +404,23 @@ def makeD(rep, beta):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.05, 2.0, 0.05).tolist()
+    beta = np.arange(0.6, 0.65, 0.05).tolist()
     Nsteps = int(np.shape(beta)[0])
     data = np.zeros(Nsteps)
 
     for p in range (0, Nsteps):
 
+
         A = makeA(rep, beta[p])
         B = makeB(rep, beta[p])
         D = makeD(rep, beta[p])
         C = makeC(rep, beta[p])
-        #print ("Norm of A", LA.norm(A))
-        #print ("Norm of B", LA.norm(B))
-        #print ("Norm of C", LA.norm(C))
-        #print ("Norm of D", LA.norm(D))
+        '''
+        print ("Norm of A", LA.norm(A))
+        print ("Norm of B", LA.norm(B))
+        print ("Norm of C", LA.norm(C))
+        print ("Norm of D", LA.norm(D))
+        '''
     
     
         CU = 0.0 
@@ -456,23 +450,25 @@ if __name__ == "__main__":
   
                 Free = -(1.0/beta[p])*(CU + (np.log(Z)/(2.0**Niter)))
                 data[p] = beta[p]*Free 
-                print ("Free energy is ", round(Free,4), " @ beta =", round(beta[p],4), "with bond dimension", Dcut)
+                print ("f/V =", round(Free,4), "@ beta =", round(beta[p],4), "with D, Niter ->", Dcut, Niter) 
 
-    dx = beta[1]-beta[0]
-    dfdx = np.gradient(data, dx) 
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-    f = plt.figure()
-    fig, ax1 = plt.subplots()
-    color = 'tab:red'
-    ax1.set_xlabel(r'$\beta$',fontsize=13)
-    ax1.set_ylabel('S', color=color,fontsize=13)
-    ax1.plot(beta, dfdx, marker="*", color=color)
-    ax1.tick_params(axis='y', labelcolor=color)
-    plt.grid(True)
-    plt.title(r"3d SU(2) PCM model using Triad TRG",fontsize=16, color='black')
-    fig.tight_layout()
-    plt.show()
+    if Nsteps > 4:
+
+        dx = beta[1]-beta[0]
+        dfdx = np.gradient(data, dx) 
+        plt.rc('text', usetex=True)
+        plt.rc('font', family='serif')
+        f = plt.figure()
+        fig, ax1 = plt.subplots()
+        color = 'tab:red'
+        ax1.set_xlabel(r'$\beta$',fontsize=13)
+        ax1.set_ylabel('S', color=color,fontsize=13)
+        ax1.plot(beta, dfdx, marker="*", color=color)
+        ax1.tick_params(axis='y', labelcolor=color)
+        plt.grid(True)
+        plt.title(r"3d SU(2) PCM model using Triad TRG",fontsize=16, color='black')
+        fig.tight_layout()
+        plt.show()
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
     
