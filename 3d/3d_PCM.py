@@ -304,10 +304,13 @@ def makeB(rep, beta):
 
                 i, j, k = index(R,M_e,N_e), index(rp3,m5_e,n5_e), index(Rprime,Mprime_e,Nprime_e) 
 
-                B[i][j][k] =  CGC((R/2.0), M_e, (rp3/2.0), m5_e, (Rprime/2.0), Mprime_e) 
-                B[i][j][k] *= CGC((R/2.0), N_e, (rp3/2.0), n5_e, (Rprime/2.0), Nprime_e) 
-                B[i][j][k] *= sqrt(Fr((rp3/2.0), beta))
-                B[i][j][k] /= sqrt(Rprime+1.0) 
+                b1 = CGC((R/2.0), M_e, (rp3/2.0), m5_e, (Rprime/2.0), Mprime_e) 
+                b2 = CGC((R/2.0), N_e, (rp3/2.0), n5_e, (Rprime/2.0), Nprime_e)
+                b3 = sqrt(Fr((rp3/2.0), beta))/sqrt(Rprime+1.0) 
+
+                B[i][j][k] =  b1 * b3 
+
+
 
 
     return  B
@@ -350,12 +353,13 @@ def makeC(rep, beta):
 
             for Mprime_e, Nprime_e, m6_e, n6_e, Mdprime_e, Ndprime_e in itertools.product(Mprime, Nprime, m6, n6, Mdprime, Ndprime):
 
-                i, j, k = index(Rprime,Mprime_e,Nprime_e), index(rm3,m6_e,n6_e), index(Rdprime,Mdprime_e,Ndprime_e)  
+                i, j, k = index(Rprime,Mprime_e,Nprime_e), index(rm3,m6_e,n6_e), index(Rdprime,Mdprime_e,Ndprime_e) 
 
-                C[i][j][k] =  CGC((Rdprime/2.0), Mdprime_e, (rm3/2.0), m6_e, (Rprime/2.0), Nprime_e) 
-                C[i][j][k] *= CGC((Rdprime/2.0), Ndprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e) 
-                C[i][j][k] *= sqrt(Fr((rm3/2.0), beta))
-                C[i][j][k] /= sqrt(Rprime+1.0) 
+                c1 =  CGC((Rdprime/2.0), Mdprime_e, (rm3/2.0), m6_e, (Rprime/2.0), Nprime_e) 
+                c2 =  CGC((Rdprime/2.0), Ndprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e)
+                c3 =  sqrt(Fr((rm3/2.0), beta))/sqrt(Rprime+1.0) 
+
+                C[i][j][k] =  c1 * c3 
 
     return  C
 
@@ -421,21 +425,29 @@ if __name__ == "__main__":
         print ("Norm of C", LA.norm(C))
         print ("Norm of D", LA.norm(D))
         '''
+
+
     
     
         CU = 0.0 
         for iter in range (Niter):
 
-            A, B, C, D = coarse_graining(A,B,C,D)              
+            A, B, C, D = coarse_graining(A,B,C,D)  
+            #print ("Norm of A", LA.norm(A))
+            print ("Norm of B", LA.norm(B))
+            print ("Norm of C", LA.norm(C))
+            #print ("Norm of D", LA.norm(D))            
             T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             norm = np.max(T)
-            div = sqrt(sqrt(norm))
+            #print ("Norm is", norm)
+            div = np.sqrt(np.sqrt(norm))
 
             A  /= div
             B  /= div
             C  /= div
             D  /= div
             CU += np.log(norm)/(2.0**(iter+1))
+            
 
         
             if iter == Niter-1:
@@ -448,6 +460,7 @@ if __name__ == "__main__":
                 Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
                 # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
   
+                #print ("log Z", np.log(Z))
                 Free = -(1.0/beta[p])*(CU + (np.log(Z)/(2.0**Niter)))
                 data[p] = beta[p]*Free 
                 print ("f/V =", round(Free,4), "@ beta =", round(beta[p],4), "with D, Niter ->", Dcut, Niter) 
