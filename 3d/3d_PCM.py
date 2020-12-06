@@ -432,9 +432,9 @@ if __name__ == "__main__":
         CU = 0.0 
         for iter in range (Niter):
 
-            A, B, C, D = coarse_graining(A,B,C,D)  
-            #print ("Finished", iter+1, "of", Niter , "steps of CG")
-            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            A, B, C, D = coarse_graining(A,B,C,D)              
+            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            norm = np.max(T)
             div = sqrt(sqrt(norm))
 
             A  /= div
