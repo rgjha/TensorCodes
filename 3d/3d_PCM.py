@@ -16,7 +16,7 @@ from opt_einsum import contract
 from ncon import ncon 
                      
 startTime = time.time()
-#print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
 if len(sys.argv) < 4:
@@ -204,15 +204,10 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
     G = contract('ijka,al->ijkl', G, st)  
 
-    #Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
-    #Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
-    #DC  = contract('pix,pqa,qjy,ijd->xayd', np.conjugate(U), A, np.conjugate(V), A)
-
-    print ("norm A, U *, V*", LA.norm(A), LA.norm(np.conjugate(U)),LA.norm(np.conjugate(V)))
-    DC = ncon([np.conjugate(U),A,np.conjugate(V),A],[[1,2,-1],[1,3,-2],[3,4,-3],[2,4,-4]])
-    #DC = contract('abcd,cpaq->bdpq', Tmp1, Tmp2)   # .....   ixqa * qyid -> xayd 
-    print ("Norm compare on machines!!! ", LA.norm(DC)) 
-
+    Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
+    Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
+    DC = contract('abcd,cpaq->bdpq', Tmp1, Tmp2)
+    #DC = ncon([np.conjugate(U),A,np.conjugate(V),A],[[1,2,-1],[1,3,-2],[3,4,-3],[2,4,-4]])
     DC = contract('dzb,xayd->zxyab', B, DC)
 
     Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
@@ -222,7 +217,6 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 
     sing = sqrtm(st3) 
-    print(st3.diagonal())
     # Note that both st3 & sing are diagonal matrix 
     # Check using: np.count_nonzero(st3 - np.diag(np.diagonal(st3)))
     B = contract('ijk,kp->ijp', B, sing)
@@ -420,7 +414,7 @@ def makeD(rep, beta):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.6, 0.65, 0.05).tolist()
+    beta = np.arange(0.6, 0.70, 0.05).tolist()
     Nsteps = int(np.shape(beta)[0])
     data = np.zeros(Nsteps)
 
@@ -488,6 +482,7 @@ if __name__ == "__main__":
                 data[p] = beta[p]*Free 
                 print ("f/V =", round(Free,4), "@ beta =", round(beta[p],4), "with D, Niter ->", Dcut, Niter) 
                 sys.exit(1)
+
 
     if Nsteps > 4:
 
