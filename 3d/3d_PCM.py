@@ -15,7 +15,7 @@ import datetime
 from opt_einsum import contract
                      
 startTime = time.time()
-print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+#print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
 if len(sys.argv) < 4:
@@ -214,7 +214,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     MCprime = contract('ij,jklm->iklm', st2, MCprime)
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
 
-    # Split singular piece here!
+
     sing = sqrtm(st3) 
     B = contract('ijk,kp->ijp', B, sing)
     C = contract('kj,jip->kip', sing, C)
@@ -302,13 +302,15 @@ def makeB(rep, beta):
 
             for M_e, N_e, m5_e, n5_e, Mprime_e, Nprime_e in itertools.product(M, N, m5, n5, Mprime, Nprime):
 
+
+
                 i, j, k = index(R,M_e,N_e), index(rp3,m5_e,n5_e), index(Rprime,Mprime_e,Nprime_e) 
 
                 b1 = CGC((R/2.0), M_e, (rp3/2.0), m5_e, (Rprime/2.0), Mprime_e) 
                 b2 = CGC((R/2.0), N_e, (rp3/2.0), n5_e, (Rprime/2.0), Nprime_e)
                 b3 = sqrt(Fr((rp3/2.0), beta))/sqrt(Rprime+1.0) 
 
-                B[i][j][k] =  b1 * b3 
+                B[i][j][k] =  b1 * b2 * b3
 
 
 
@@ -359,7 +361,7 @@ def makeC(rep, beta):
                 c2 =  CGC((Rdprime/2.0), Ndprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e)
                 c3 =  sqrt(Fr((rm3/2.0), beta))/sqrt(Rprime+1.0) 
 
-                C[i][j][k] =  c1 * c3 
+                C[i][j][k] =  c1 * c2 * c3
 
     return  C
 
@@ -419,27 +421,37 @@ if __name__ == "__main__":
         B = makeB(rep, beta[p])
         D = makeD(rep, beta[p])
         C = makeC(rep, beta[p])
-        '''
-        print ("Norm of A", LA.norm(A))
-        print ("Norm of B", LA.norm(B))
-        print ("Norm of C", LA.norm(C))
-        print ("Norm of D", LA.norm(D))
-        '''
-
-
-    
-    
+        
+        print ("Start norm of A", round(LA.norm(A),10))
+        print ("Start norm of B", round(LA.norm(B),10))
+        print ("Start norm of C", round(LA.norm(C),10))
+        print ("Start norm of D", round(LA.norm(D),10))
+        
         CU = 0.0 
+
+        T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+        norm = np.max(T)
+        div = np.sqrt(np.sqrt(norm))
+
+        A  /= div
+        B  /= div
+        C  /= div
+        D  /= div
+        CU += np.log(norm)/(2.0)
+
+
+
         for iter in range (Niter):
 
-            A, B, C, D = coarse_graining(A,B,C,D)  
-            #print ("Norm of A", LA.norm(A))
-            print ("Norm of B", LA.norm(B))
-            print ("Norm of C", LA.norm(C))
-            #print ("Norm of D", LA.norm(D))            
+            A, B, C, D = coarse_graining(A,B,C,D)    
+
+            print ("A", round(LA.norm(A),10))
+            print ("B", round(LA.norm(B),10))
+            print ("C", round(LA.norm(C),10))
+            print ("D", round(LA.norm(D),10))  
+
             T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             norm = np.max(T)
-            #print ("Norm is", norm)
             div = np.sqrt(np.sqrt(norm))
 
             A  /= div
@@ -460,10 +472,10 @@ if __name__ == "__main__":
                 Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
                 # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
   
-                #print ("log Z", np.log(Z))
                 Free = -(1.0/beta[p])*(CU + (np.log(Z)/(2.0**Niter)))
                 data[p] = beta[p]*Free 
                 print ("f/V =", round(Free,4), "@ beta =", round(beta[p],4), "with D, Niter ->", Dcut, Niter) 
+                sys.exit(1)
 
     if Nsteps > 4:
 
