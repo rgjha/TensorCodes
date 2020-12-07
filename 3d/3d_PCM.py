@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 import time
 import datetime
 from opt_einsum import contract
+from ncon import ncon 
                      
 startTime = time.time()
 #print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
@@ -123,7 +124,7 @@ def tensorsvd(input,left,right,D):
     ysize = np.prod(right_index_list)
     T = np.reshape(T,(xsize,ysize))
 
-    U, s, V = sp.linalg.svd(T, full_matrices=False) 
+    U, s, V = np.linalg.svd(T, full_matrices=False) 
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -188,7 +189,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     b = int(sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))
     V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)
- 
+
     del K
     del Kprime
     del S1 
@@ -203,21 +204,30 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
     G = contract('ijka,al->ijkl', G, st)  
 
-    Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
-    Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
-    DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
+    #Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
+    #Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
+    #DC  = contract('pix,pqa,qjy,ijd->xayd', np.conjugate(U), A, np.conjugate(V), A)
+
+    print ("norm A, U *, V*", LA.norm(A), LA.norm(np.conjugate(U)),LA.norm(np.conjugate(V)))
+    DC = ncon([np.conjugate(U),A,np.conjugate(V),A],[[1,2,-1],[1,3,-2],[3,4,-3],[2,4,-4]])
+    #DC = contract('abcd,cpaq->bdpq', Tmp1, Tmp2)   # .....   ixqa * qyid -> xayd 
+    print ("Norm compare on machines!!! ", LA.norm(DC)) 
+
     DC = contract('dzb,xayd->zxyab', B, DC)
- 
+
     Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
     A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
-
     MCprime = contract('ij,jklm->iklm', st2, MCprime)
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
 
 
     sing = sqrtm(st3) 
+    print(st3.diagonal())
+    # Note that both st3 & sing are diagonal matrix 
+    # Check using: np.count_nonzero(st3 - np.diag(np.diagonal(st3)))
     B = contract('ijk,kp->ijp', B, sing)
     C = contract('kj,jip->kip', sing, C)
+    
 
     return A,B,C,D 
 
@@ -421,11 +431,12 @@ if __name__ == "__main__":
         B = makeB(rep, beta[p])
         D = makeD(rep, beta[p])
         C = makeC(rep, beta[p])
-        
+        '''
         print ("Start norm of A", round(LA.norm(A),10))
         print ("Start norm of B", round(LA.norm(B),10))
         print ("Start norm of C", round(LA.norm(C),10))
         print ("Start norm of D", round(LA.norm(D),10))
+        '''
         
         CU = 0.0 
 
@@ -444,11 +455,12 @@ if __name__ == "__main__":
         for iter in range (Niter):
 
             A, B, C, D = coarse_graining(A,B,C,D)    
-
+            '''
             print ("A", round(LA.norm(A),10))
             print ("B", round(LA.norm(B),10))
             print ("C", round(LA.norm(C),10))
             print ("D", round(LA.norm(D),10))  
+            '''
 
             T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             norm = np.max(T)
