@@ -1,14 +1,19 @@
-D	Time (in sec.)
+# For 3d Ising model at Tc = 4.5115 
 # On Perimeter's HPC [access to ~192 Gb memory] 
+
+D	Time (in sec.)	 free energy
+
 20	24
 25	49
 30	134
 35	313
 40	709
 44	1155
-47	1679
-55	4486
-62	9486 
+47	1679		-3.5089
+55	4486		-3.5091
+62	9486 		-3.5091
 65 	12374
 68	16780
 82	53736
+
+# Note that -3.5091 agrees with -3.5093(2) given in 1912.02414

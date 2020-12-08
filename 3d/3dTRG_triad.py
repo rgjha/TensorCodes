@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
 
     if choice == 0:
-        temp = np.arange(3.50, 5.00, 0.10).tolist()
+        temp = np.arange(4.5115, 4.5120, 0.10).tolist()
         Nsteps = int(np.shape(temp)[0])
         f = np.zeros(Nsteps)
 
