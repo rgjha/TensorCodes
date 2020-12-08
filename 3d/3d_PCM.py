@@ -140,7 +140,7 @@ def tensorsvd(input,left,right,D):
     return U, s, V
 
   
-def coarse_graining(in1, in2, in3, in4,impure=False):
+def coarse_graining(in1, in2, in3, in4):
 
     A = in1
     B = in2
@@ -168,6 +168,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     R3mat = np.reshape(R3,(a,b))
 
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
+    #Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
 
     a = int(sqrt(np.shape(Kprime)[0]))
     b = int(sqrt(np.shape(Kprime)[1]))
@@ -420,11 +421,12 @@ if __name__ == "__main__":
 
     for p in range (0, Nsteps):
 
-
+        
         A = makeA(rep, beta[p])
         B = makeB(rep, beta[p])
         D = makeD(rep, beta[p])
         C = makeC(rep, beta[p])
+
         '''
         print ("Start norm of A", round(LA.norm(A),10))
         print ("Start norm of B", round(LA.norm(B),10))
@@ -481,7 +483,7 @@ if __name__ == "__main__":
                 Free = -(1.0/beta[p])*(CU + (np.log(Z)/(2.0**Niter)))
                 data[p] = beta[p]*Free 
                 print ("f/V =", round(Free,4), "@ beta =", round(beta[p],4), "with D, Niter ->", Dcut, Niter) 
-                sys.exit(1)
+                #sys.exit(1)
 
 
     if Nsteps > 4:
