@@ -1,5 +1,5 @@
 # Tensor formulation of 3d model using triad method 
-# Free energy at T = 4.5115 is close to -3.51 
+# Free energy at T = 4.5115 is -3.5093(2) in infinite 'D' limit. 
 # Ref: https://arxiv.org/abs/1912.02414
 # Now using "contract" which seems much faster than NCON
 # https://doi.org/10.21105/joss.00753
@@ -238,7 +238,7 @@ if __name__ == "__main__":
         f = np.zeros(Nsteps)
 
     if choice == 1:
-        beta = np.arange(1.0, 2.05, 0.05).tolist()
+        beta = np.arange(0.05, 2.05, 0.05).tolist()
         Nsteps = int(np.shape(beta)[0])
         f = np.zeros(Nsteps)
 
@@ -253,9 +253,14 @@ if __name__ == "__main__":
         for iter in range (Niter):
 
             A, B, C, D = coarse_graining(A,B,C,D)  
-            #print ("Finished", iter+1, "of", Niter , "steps of CG")
-            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            print ("Finished", iter+1, "of", Niter , "steps of CG")
+            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            norm = np.max(T)
             div = np.sqrt(np.sqrt(norm))
+
+            # Alt way to normalize!
+            #norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            #div = np.sqrt(np.sqrt(norm))
 
             A  /= div
             B  /= div
@@ -263,7 +268,6 @@ if __name__ == "__main__":
             D  /= div
             CU += np.log(norm)/(2.0**(iter+1))
 
-        
             if iter == Niter-1:
 
                 Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))

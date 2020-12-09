@@ -1,6 +1,6 @@
-#python3
-# Pass a file with COL1 = kappa and COL2 = free energy 
-# and compute the second numerical derivative 
+# python3
+# Pass a file with COL1 = variable and COL2 = usually log(Z) or free energy  
+# and compute the 1st/2nd numerical derivative 
 # Dec 13, 2018
 
 import sys
@@ -8,6 +8,7 @@ import itertools
 import scipy 
 from scipy import integrate
 import numpy as np
+from matplotlib import pyplot as plt
 
 if len( sys.argv ) == 2 :
     filename = sys.argv[1]
@@ -32,7 +33,29 @@ dx = x[1]-x[0]  # Asssuming equal spacing
 dydx = np.gradient(y, dx)
 d2ydx2 = np.gradient(dydx, dx)
 
-# Print the out array to a file for plotting 
-with open('output.dat', 'w') as f:
-    for item in dydx:
-        f.write("%s\n" % item)
+# Print the numerical derivative (y-axis, column 2) array to a file
+# with the variable (column 1)
+with open('output', 'w') as f:
+    res = "\n".join("{} {}".format(x, y) for x, y in zip(x, dydx)) 
+    f.write("%s\n" % (res))
+
+
+# Now plot the variable and numerical derivative.
+
+out = [] 
+for i in range(0, len(dydx)): 
+    out.append(dydx[i] * x[i] * (1.0/3.0)) 
+
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
+f = plt.figure()
+fig, ax1 = plt.subplots()
+color = 'tab:red'
+ax1.set_xlabel(r'$\beta$',fontsize=13)
+ax1.set_ylabel('S', color=color,fontsize=13)
+ax1.plot(x, out, marker="*", color=color)
+ax1.tick_params(axis='y', labelcolor=color)
+plt.grid(True)
+plt.title(r"Numerical derivative",fontsize=16, color='black')
+fig.tight_layout()
+plt.show()
