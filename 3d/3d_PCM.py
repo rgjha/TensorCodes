@@ -231,7 +231,6 @@ def makeA(rep, beta):
 
     A = np.zeros([N_r, N_r, N_r_p])
 
-
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
 
@@ -261,9 +260,11 @@ def makeA(rep, beta):
 
                 i, j, k = index(rp2,m3_e,n3_e), index(rp1,m1_e,n1_e), index(R,M_e,N_e)  
 
-                A[i][j][k] =  CGC((rp1/2.0), m1_e, (rp2/2.0), m3_e,(R/2.0), M_e) 
-                A[i][j][k] *= CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), N_e) 
-                A[i][j][k] *= sqrt(Fr((rp1/2.0), beta) * Fr((rp2/2.0), beta))
+                a1 = CGC((rp1/2.0), m1_e, (rp2/2.0), m3_e,(R/2.0), M_e)
+                a2 = CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), N_e) 
+                a3 = sqrt(Fr((rp1), beta) * Fr((rp2), beta))
+
+                A[i][j][k] = a1 * a2 * a3
 
 
     return  A
@@ -313,7 +314,7 @@ def makeB(rep, beta):
 
                 b1 = CGC((R/2.0), M_e, (rp3/2.0), m5_e, (Rprime/2.0), Mprime_e) 
                 b2 = CGC((R/2.0), N_e, (rp3/2.0), n5_e, (Rprime/2.0), Nprime_e)
-                b3 = sqrt(Fr((rp3/2.0), beta))/sqrt(Rprime+1.0) 
+                b3 = sqrt(Fr((rp3), beta))/sqrt(Rprime+1.0) 
 
                 B[i][j][k] =  b1 * b2 * b3
 
@@ -364,7 +365,7 @@ def makeC(rep, beta):
 
                 c1 =  CGC((Rdprime/2.0), Mdprime_e, (rm3/2.0), m6_e, (Rprime/2.0), Nprime_e) 
                 c2 =  CGC((Rdprime/2.0), Ndprime_e, (rm3/2.0), n6_e, (Rprime/2.0), Mprime_e)
-                c3 =  sqrt(Fr((rm3/2.0), beta))/sqrt(Rprime+1.0) 
+                c3 =  sqrt(Fr((rm3), beta))/sqrt(Rprime+1.0) 
 
                 C[i][j][k] =  c1 * c2 * c3
 
@@ -405,9 +406,12 @@ def makeD(rep, beta):
             for m2_e, n2_e, m4_e, n4_e, Mdprime_e, Ndprime_e in itertools.product(m2, n2, m4, n4, Mdprime, Ndprime):
 
                 i, j, k = index(Rdprime,Mdprime_e,Ndprime_e), index(rm1,m2_e,n2_e), index(rm2,m4_e,n4_e) 
-                D[i][j][k] =  CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdprime/2.0), Mdprime_e) 
-                D[i][j][k] *= CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdprime/2.0), Ndprime_e)  
-                D[i][j][k] *= sqrt(Fr((rm1/2.0), beta) * Fr((rm2/2.0), beta)) 
+
+                d1 = CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e, (Rdprime/2.0), Mdprime_e)
+                d2 = CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdprime/2.0), Ndprime_e)
+                d3 = sqrt(Fr((rm1), beta) * Fr((rm2), beta)) 
+
+                D[i][j][k] = d1 * d2 * d3
 
     return  D
 
@@ -415,24 +419,16 @@ def makeD(rep, beta):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.6, 0.70, 0.05).tolist()
+    beta = np.arange(1.15, 1.2, 0.05).tolist()
     Nsteps = int(np.shape(beta)[0])
     data = np.zeros(Nsteps)
 
     for p in range (0, Nsteps):
 
-        
         A = makeA(rep, beta[p])
         B = makeB(rep, beta[p])
         D = makeD(rep, beta[p])
         C = makeC(rep, beta[p])
-
-        '''
-        print ("Start norm of A", round(LA.norm(A),10))
-        print ("Start norm of B", round(LA.norm(B),10))
-        print ("Start norm of C", round(LA.norm(C),10))
-        print ("Start norm of D", round(LA.norm(D),10))
-        '''
         
         CU = 0.0 
 
@@ -483,7 +479,6 @@ if __name__ == "__main__":
                 Free = -(1.0/beta[p])*(CU + (np.log(Z)/(2.0**Niter)))
                 data[p] = beta[p]*Free 
                 print ("f/V =", round(Free,4), "@ beta =", round(beta[p],4), "with D, Niter ->", Dcut, Niter) 
-                #sys.exit(1)
 
 
     if Nsteps > 4:
