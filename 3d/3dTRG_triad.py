@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
 
     if choice == 0:
-        temp = np.arange(4.5115, 4.5120, 0.10).tolist()
+        temp = np.arange(4.5115, 4.5116, 0.02).tolist()
         Nsteps = int(np.shape(temp)[0])
         f = np.zeros(Nsteps)
 
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         for iter in range (Niter):
 
             A, B, C, D = coarse_graining(A,B,C,D)  
-            print ("Finished", iter+1, "of", Niter , "steps of CG")
+            #print ("Finished", iter+1, "of", Niter , "steps of CG")
             T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             norm = np.max(T)
             div = np.sqrt(np.sqrt(norm))
@@ -282,7 +282,9 @@ if __name__ == "__main__":
                 if choice == 0:  
                     Free = -(temp[p])*(CU + (np.log(Z)/(2.0**Niter)))
                     f[p] = -Free/temp[p] 
-                    print ("Free energy is ", round(Free,4), " @ T =", round(temp[p],4), "with bond dimension", Dcut)
+                    #print ("Free energy is ", round(Free,8), " @ T =", round(temp[p],8), "with bond dimension", Dcut)
+                    print (round(temp[p],8), round(Free,8))
+                    #print (round(temp[p],10),round(f[p],10)) 
                     if round(temp[p],4) == 4.5115:
                         index = p 
 
@@ -325,7 +327,7 @@ if __name__ == "__main__":
         ax2.tick_params(axis='y', labelcolor=color)
         plt.title(r"3d classical Ising model using Triad TRG",fontsize=16, color='black')
         fig.tight_layout()
-        plt.show()
+        plt.savefig('plotIsing.pdf')
 
 
     if choice == 1 and Nsteps > 3:
@@ -348,7 +350,7 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.title(r"3d U(1) model using Triad TRG",fontsize=16, color='black')
         fig.tight_layout()
-        plt.show()
+        plt.savefig('plot3dU1.pdf')
   
 
 
