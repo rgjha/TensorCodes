@@ -200,7 +200,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.15, 0.70, 0.05).tolist()
+    beta = np.arange(0.55, 0.6, 0.1).tolist()
     Nsteps = int(np.shape(beta)[0])
     f = np.zeros(Nsteps)
 
@@ -213,14 +213,14 @@ if __name__ == "__main__":
 
             A, B, C, D = coarse_graining(A,B,C,D)  
             
-            print ("Finished", iter+1, "of", Niter , "steps of CG")
-            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-            norm = np.max(T)
-            div = np.sqrt(np.sqrt(norm))
+            #print ("Finished", iter+1, "of", Niter , "steps of CG")
+            #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            #norm = np.max(T)
+            #div = np.sqrt(np.sqrt(norm))
 
             # Alt way to normalize!
-            #norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
-            #div = np.sqrt(np.sqrt(norm))
+            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            div = np.sqrt(np.sqrt(norm))
 
             A  /= div
             B  /= div
@@ -239,47 +239,49 @@ if __name__ == "__main__":
                 # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
 
  
-                Z_U1 = CU + (np.log(Z)/(2.0**Niter))
-                f[p] = -Z_U1
-                Free = -Z_U1*(1.0/beta[p])
-                print (round(beta[p],10),round(f[p],10))
+                Z_par = CU + (np.log(Z)/(2.0**Niter))
+                f[p] = -Z_par
+                Free = -Z_par*(1.0/beta[p])
+                print (round(beta[p],10),round(f[p],16))
 
     # Make plots if needed! 
 
-    dx = beta[1]-beta[0] # Assuming equal spacing ...
-    dfdx = np.gradient(f, dx) 
-    d2fdx2 = np.gradient(dfdx, dx) 
-    out = [] 
-    for i in range(0, len(dfdx)): 
-        out.append(dfdx[i]) 
-    out1 = [] 
-    for i in range(0, len(d2fdx2)):
-        out1.append(d2fdx2[i])
+    if Nsteps > 3: 
 
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
+        dx = beta[1]-beta[0] # Assuming equal spacing ...
+        dfdx = np.gradient(f, dx) 
+        d2fdx2 = np.gradient(dfdx, dx) 
+        out = [] 
+        for i in range(0, len(dfdx)): 
+            out.append(dfdx[i]) 
+        out1 = [] 
+        for i in range(0, len(d2fdx2)):
+            out1.append(d2fdx2[i])
 
-    data = f  
+        plt.rc('text', usetex=True)
+        plt.rc('font', family='serif')
 
-    f = plt.figure()
-    fig, ax1 = plt.subplots()
-    color = 'tab:red'
-    ax1.set_xlabel('T',fontsize=13)
-    ax1.set_ylabel('f/V', color=color,fontsize=13)
-    ax1.plot(beta, data, marker="*", color=color)
-    ax1.tick_params(axis='y', labelcolor=color)
+        data = f  
 
-    '''
-    ax2 = ax1.twinx() 
-    color = 'tab:blue'
-    ax2.set_ylabel('U', color=color,fontsize=13) 
-    ax2.plot(beta, out, marker="o", color=color)
-    plt.grid(True)
-    ax2.tick_params(axis='y', labelcolor=color)
-    '''
-    plt.title(r"3d Classical model using Triad TRG",fontsize=16, color='black')
-    fig.tight_layout()
-    plt.savefig('plot3dOO.pdf')
+        f = plt.figure()
+        fig, ax1 = plt.subplots()
+        color = 'tab:red'
+        ax1.set_xlabel('T',fontsize=13)
+        ax1.set_ylabel('f/V', color=color,fontsize=13)
+        ax1.plot(beta, data, marker="*", color=color)
+        ax1.tick_params(axis='y', labelcolor=color)
+
+        '''
+        ax2 = ax1.twinx() 
+        color = 'tab:blue'
+        ax2.set_ylabel('U', color=color,fontsize=13) 
+        ax2.plot(beta, out, marker="o", color=color)
+        plt.grid(True)
+        ax2.tick_params(axis='y', labelcolor=color)
+        '''
+        plt.title(r"3d Classical model using Triad TRG",fontsize=16, color='black')
+        fig.tight_layout()
+        plt.savefig('plot3dOO.pdf')
 
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
