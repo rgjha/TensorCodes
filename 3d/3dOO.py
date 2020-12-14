@@ -238,7 +238,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.55, 0.6, 0.1).tolist()
+    beta = np.arange(0.1, 0.75, 0.05).tolist()
     Nsteps = int(np.shape(beta)[0])
     f = np.zeros(Nsteps)
 
@@ -276,14 +276,12 @@ if __name__ == "__main__":
                 Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
                 # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
 
- 
                 Z_par = CU + (np.log(Z)/(2.0**Niter))
                 f[p] = -Z_par
                 Free = -Z_par*(1.0/beta[p])
                 print (round(beta[p],10),round(f[p],16))
 
     # Make plots if needed! 
-
     if Nsteps > 3: 
 
         dx = beta[1]-beta[0] # Assuming equal spacing ...
@@ -291,7 +289,7 @@ if __name__ == "__main__":
         d2fdx2 = np.gradient(dfdx, dx) 
         out = [] 
         for i in range(0, len(dfdx)): 
-            out.append(dfdx[i]) 
+            out.append(dfdx[i]*(-1/3.0)) 
         out1 = [] 
         for i in range(0, len(d2fdx2)):
             out1.append(d2fdx2[i])
@@ -299,14 +297,15 @@ if __name__ == "__main__":
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
 
-        data = f  
+        data = out   
 
         f = plt.figure()
         fig, ax1 = plt.subplots()
         color = 'tab:red'
         ax1.set_xlabel('T',fontsize=13)
-        ax1.set_ylabel('f/V', color=color,fontsize=13)
-        ax1.plot(beta, data, marker="*", color=color)
+        ax1.set_ylabel('Av. Action', color=color,fontsize=13)
+        #ax1.plot(beta, data, '.r-')
+        ax1.plot(beta, data, 'o', color='red');
         ax1.tick_params(axis='y', labelcolor=color)
         plt.title(r"3d Classical model using Triad TRG",fontsize=16, color='black')
         fig.tight_layout()
