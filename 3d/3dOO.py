@@ -18,12 +18,13 @@ startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
 
-if len(sys.argv) < 3:
-  print("Usage:", str(sys.argv[0]), "<Niter, Dcut")
+if len(sys.argv) < 4:
+  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, min_cut")
   sys.exit(1)
 
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
+min_cut = float(sys.argv[3])
 
 if Dcut%2 == 0:
     print ("Dcut must be odd for now")
@@ -82,72 +83,51 @@ def Z3d(beta, h, Dn):
     out = contract("i,j,k,l,m,n->ijklmn", L, L, L, L, L, L)
 
 
-    #'''
-    p31 = np.asarray(out)
-    #values = p31[p31>1e-10]
-    #count = len(values)
-    #print ("Shape of p31", np.shape(p31))
-    p31[p31 < 1e-10] = 0.0
-    #if p31 < 1e-10:
-    #    p31.all = 0.0 
-    # Note that p31 is very symmetric. Same non-zero along all axes
-    INDEX_L = np.nonzero(p31)[0]
-    #print ()
-    #print (INDEX_L[715])
-    #sys.exit(1)
-    INDEX_R = np.nonzero(p31)[1]
-    INDEX_U = np.nonzero(p31)[2]
-    INDEX_D = np.nonzero(p31)[3]
-    INDEX_F = np.nonzero(p31)[4]
-    INDEX_B = np.nonzero(p31)[5]
-    #b1 = len(np.nonzero(p31)[1])
-    #c1 = len(np.nonzero(p31)[2])
-    #d1 = len(np.nonzero(p31)[3])
-    #e1 = len(np.nonzero(p31)[4])
-    #f1 = len(np.nonzero(p31)[5])
-    #count = np.count_nonzero(out) 
-    #print ("NNZ is = ", count, "out of total of ", Dcut**6, "with a percentage of", ((Dcut**6)-count)/100.0, "empty")
+    if min_cut != 0.0:
 
-    # Get rid of those elements smaller than 1e-10 and only loop over the ones
-    # left after this truncation. 
+        p31 = np.asarray(out)
+        p31[p31 < min_cut] = 0.0
+        # Note that p31 is very symmetric. Same non-zero along all axes
+        index_l = np.nonzero(p31)[0]
+        index_r = np.nonzero(p31)[1]
+        index_u = np.nonzero(p31)[2]
+        index_d = np.nonzero(p31)[3]
+        index_f = np.nonzero(p31)[4]
+        index_b = np.nonzero(p31)[5]
+        # Get rid of those elements smaller than min_cut and only loop over the ones
+        # left after this truncation. 
+        length = len(index_l)
+        frac = ((Dcut**6)-length)*100/(Dcut**6)
+        if frac == 0.00:
+            print ("No truncation apart from Dcut")
+        else:
+            print ("Truncating " "%8.7f" "%% of the initial tensor" %(frac))
 
-    length = len(INDEX_L)
-    
+        for iter in range (0, length):
 
-    for iter in range (0, length):
-
-        l = INDEX_L[iter]
-        r = INDEX_R[iter]
-        u = INDEX_U[iter]
-        d = INDEX_D[iter]
-        f = INDEX_F[iter]
-        b = INDEX_B[iter]
-        index = l+u+f-r-d-b
-
-        out[l][r][u][d][f][b] *= sp.special.iv(index, betah)
+            l = index_l[iter]
+            r = index_r[iter]
+            u = index_u[iter]
+            d = index_d[iter]
+            f = index_f[iter]
+            b = index_b[iter]
+            index = l+u+f-r-d-b
+            out[l][r][u][d][f][b] *= sp.special.iv(index, betah)
 
 
-    #'''
+    else: 
+
+        for l in range (-Dn,Dn+1):
+            for r in range (-Dn,Dn+1):
+                for u in range (-Dn,Dn+1):
+                    for d in range (-Dn,Dn+1):
+                        for f in range (-Dn,Dn+1):
+                            for b in range (-Dn,Dn+1):
+
+                                index = l+u+f-r-d-b
+                                out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
 
 
-    '''
-    for l in range (-Dn,Dn+1):
-        for r in range (-Dn,Dn+1):
-            for u in range (-Dn,Dn+1):
-                for d in range (-Dn,Dn+1):
-                    for f in range (-Dn,Dn+1):
-                        for b in range (-Dn,Dn+1):
-
-                            index = l+u+f-r-d-b
-                            out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
-    '''
-
-
-
-
-
-
-    
 
 
     Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut) 
@@ -328,15 +308,6 @@ if __name__ == "__main__":
         ax1.set_ylabel('f/V', color=color,fontsize=13)
         ax1.plot(beta, data, marker="*", color=color)
         ax1.tick_params(axis='y', labelcolor=color)
-
-        '''
-        ax2 = ax1.twinx() 
-        color = 'tab:blue'
-        ax2.set_ylabel('U', color=color,fontsize=13) 
-        ax2.plot(beta, out, marker="o", color=color)
-        plt.grid(True)
-        ax2.tick_params(axis='y', labelcolor=color)
-        '''
         plt.title(r"3d Classical model using Triad TRG",fontsize=16, color='black')
         fig.tight_layout()
         plt.savefig('plot3dOO.pdf')
