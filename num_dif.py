@@ -42,7 +42,7 @@ d2ydx2 = np.gradient(dydx, dx)
 # Print the 1st numerical derivative (column 2) array to a file
 # with the variable (column 1) and 2nd numerical derivative (column 3)
 with open('output_num_dif', 'w') as f:
-    res = "\n".join("{} {} {}".format(x, y, z) for x, y, z in zip(x, -dydx, -d2ydx2)) 
+    res = "\n".join("{} {} {}".format(x, y, z) for x, y, z in zip(x, -dydx*0.33333333, -d2ydx2)) 
     f.write("%s\n" % (res))
 
 
@@ -50,7 +50,12 @@ with open('output_num_dif', 'w') as f:
 
 out = [] 
 for i in range(0, len(dydx)): 
-    out.append(-dydx[i] * x[i] * x[i]) 
+    out.append(-dydx[i]*0.33333333) 
+
+out1 = [] 
+for i in range(0, len(d2ydx2)): 
+    out1.append(-d2ydx2[i])
+
 
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
@@ -59,7 +64,7 @@ fig, ax1 = plt.subplots()
 color = 'tab:red'
 ax1.set_xlabel(r'$\beta$',fontsize=13)
 ax1.set_ylabel('.', color=color,fontsize=13)
-ax1.plot(x, out, marker="*", color=color)
+ax1.plot(x, out1, marker="*", color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 plt.grid(True)
 plt.title(r"Numerical derivative",fontsize=16, color='black')

@@ -86,6 +86,7 @@ def Z3d(beta, h, Dn):
     if min_cut != 0.0:
 
         p31 = np.asarray(out)
+        print ("Min. element of T", np.min(out))
         p31[p31 < min_cut] = 0.0
         # Note that p31 is very symmetric. Same non-zero along all axes
         index_l = np.nonzero(p31)[0]
@@ -128,20 +129,32 @@ def Z3d(beta, h, Dn):
                                 out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
 
 
-
+    out = out.transpose(0,5,3,2,4,1)
 
     Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut) 
-    A = contract('ijk,kp->ijp', Tmp1, stmp1)
+    sing = sqrtm(stmp1)
+    A = contract('ijk,kp->ijp', Tmp1, sing)
+    Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
+
     Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut) 
-    D = contract('kp,pij->kij', stmp2, Tmp4)
+    sing = sqrtm(stmp2)
+    D = contract('kp,pij->kij', sing, Tmp4)  # Split singular here...
+
+    Tmp3 = contract('pqrs,sj->pqrj', Tmp3, sing)
+
     Tmp5, stmp3, Tmp6 = tensorsvd(Tmp3,[0,1],[2,3],Dcut)
     sing = sqrtm(stmp3)
     B = contract('ijk,kp->ijp', Tmp5, sing)
     C = contract('kp,pij->kij', sing, Tmp6)
 
-    # T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-    # We convinced ourselves that this matches 'out'
-    # So triads are correctly made!
+    T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+    diff = LA.norm(T) - LA.norm(out)
+    print ("Norm difference", diff)
+
+    if abs(diff) > 1e-14:
+        print ("Error: Triads not accurate")
+        print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+        sys.exit(1) 
 
     return A, B, C, D
 
@@ -278,8 +291,8 @@ if __name__ == "__main__":
 
                 Z_par = CU + (np.log(Z)/(2.0**Niter))
                 f[p] = -Z_par
-                Free = -Z_par*(1.0/beta[p])
-                print (round(beta[p],10),round(f[p],16))
+                Free = f[p]*(1.0/beta[p])
+                print (round(beta[p],5),round(f[p],16),round(Free,16) )
 
     # Make plots if needed! 
     if Nsteps > 3: 
