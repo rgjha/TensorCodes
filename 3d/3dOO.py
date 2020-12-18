@@ -25,6 +25,7 @@ if len(sys.argv) < 4:
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
 min_cut = float(sys.argv[3])
+Dcut_triad = int(Dcut*1.5) 
 
 if Dcut%2 == 0:
     print ("Dcut must be odd for now")
@@ -131,30 +132,32 @@ def Z3d(beta, h, Dn):
 
     out = out.transpose(0,5,3,2,4,1)
 
-    Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut) 
+    Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
     sing = sqrtm(stmp1)
     A = contract('ijk,kp->ijp', Tmp1, sing)
     Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
 
-    Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut) 
+    Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
     sing = sqrtm(stmp2)
     D = contract('kp,pij->kij', sing, Tmp4)  # Split singular here...
 
     Tmp3 = contract('pqrs,sj->pqrj', Tmp3, sing)
 
-    Tmp5, stmp3, Tmp6 = tensorsvd(Tmp3,[0,1],[2,3],Dcut)
+    Tmp5, stmp3, Tmp6 = tensorsvd(Tmp3,[0,1],[2,3],Dcut_triad)
     sing = sqrtm(stmp3)
     B = contract('ijk,kp->ijp', Tmp5, sing)
     C = contract('kp,pij->kij', sing, Tmp6)
 
     T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+    #print ("Shape of T", np.shape(T))
     diff = LA.norm(T) - LA.norm(out)
-    print ("Norm difference", diff)
 
     if abs(diff) > 1e-14:
-        print ("Error: Triads not accurate")
+        print ("Error: Triads not accurate", diff)
         print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
         sys.exit(1) 
+
+    #print (np.shape(A),np.shape(B),np.shape(C),np.shape(D))
 
     return A, B, C, D
 
@@ -251,7 +254,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.1, 0.75, 0.05).tolist()
+    beta = np.arange(0.15, 0.75, 0.05).tolist()
     Nsteps = int(np.shape(beta)[0])
     f = np.zeros(Nsteps)
 
@@ -322,7 +325,12 @@ if __name__ == "__main__":
         ax1.tick_params(axis='y', labelcolor=color)
         plt.title(r"3d Classical model using Triad TRG",fontsize=16, color='black')
         fig.tight_layout()
-        plt.savefig('plot3dOO.pdf')
+
+        outplot = '3dXY' + '_Niter'
+        outplot += str(Niter) + '_chi' + str(Dcut)
+        outplot += '.pdf'   
+
+        plt.savefig(outplot)
 
 
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
