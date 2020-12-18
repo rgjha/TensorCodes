@@ -130,7 +130,9 @@ def Z3d(beta, h, Dn):
                                 out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
 
 
+
     out = out.transpose(0,5,3,2,4,1)
+    # lrudfb to lbdufr
 
     Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
     sing = sqrtm(stmp1)
@@ -149,15 +151,12 @@ def Z3d(beta, h, Dn):
     C = contract('kp,pij->kij', sing, Tmp6)
 
     T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-    #print ("Shape of T", np.shape(T))
     diff = LA.norm(T) - LA.norm(out)
 
     if abs(diff) > 1e-14:
         print ("Error: Triads not accurate", diff)
         print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
         sys.exit(1) 
-
-    #print (np.shape(A),np.shape(B),np.shape(C),np.shape(D))
 
     return A, B, C, D
 
