@@ -24,48 +24,51 @@ function tensorsvd(input,left,right,chi)
     #to left set of indices and second index corresponding to right set of indices. Do SVD
     #and then reshape U and V to tensors [left,D] x [D,right]
     #T = np.transpose(input,left+right)
-
-    T = permutedims(input, left+right)
-
-
+    left = left .+ 1
+    right = right .+ 1
+    a = Tuple(append!(left, right))
+    T = permutedims(input, a)
     left_index_list = []
     #for i in range(size(left))
     for i = 1:length(left)
+        #println(i)
         #left_index_list.append(T.shape[i])
-        append!(left_index_list, T.shape[i])
+        append!(left_index_list, size(T, i)) # HERE!
     end
-
 
     xsize = prod(left_index_list)
     right_index_list = []
 
     #for i in range(len(left),len(left)+len(right)):
-    for i = length(left):length(left)+length(right)
+    for i = length(left)+1:length(left)+length(right)
         #right_index_list.append(T.shape[i])
-        append!(right_index_list, T.shape[i])
+        append!(right_index_list, size(T, i+1))
     end
     ysize = prod(right_index_list)
 
-
     T = reshape(T,(xsize,ysize))
-    U, s, V = svdfact(T)
+    F = svd(T)
+    U = F.U
+    s = Diagonal(F.S)
+    V = F.Vt
 
     if chi < length(s)
-        s = diag(s[:chi])
+        s = s[:chi]
         U = U[:,:chi]
         V = V[:chi,:]
     else
         chi = length(s)
-        s = diag(s)
     end
 
-    U = reshape(U,left_index_list+[chi])
-    V = reshape(V,[chi]+right_index_list)
+    #t1 = left .+ chi
+    # Uncomment these two lines! #TODO
+    #U = reshape(U, Tuple(left_index_list+[chi]))
+    #V = reshape(V,[chi]+right_index_list)
+    println("Done with SVD routine!!")
 
     return U, s, V
 
 end
-
 
 function Z3d_Ising(beta)
 
@@ -103,44 +106,54 @@ function coarse_graining(in1, in2, in3, in4)
     S2 = reshape(S2,(a,b))
 
     #Tmp = contract('fyx,iyx->fi', D, np.conjugate(D))
-    @tensoropt Tmp[f,i] = D[f,y,x]* conj(D)[i,y,x]
-    # HERE!
+    #@tensoropt Tmp[f,i] = D[f,y,x]* conj(D)[i,y,x]
+    Tmp = @ncon([D, conj(D)],[[-1,1,2],[-2,1,2]])
     # Seems like we need to replace tensoropt with NCON
     # NCON doesn't need preallocated space. tensoropt does!
 
     #R2 = contract('ewf,ijk,fk->eiwj', C, np.conjugate(C), Tmp)
 
-    @tensoropt R2[e,i,w,j] = C[e,w,f]* conj(C)[i,j,k]* Tmp[f,k]
+    #@tensoropt R2[e,i,w,j] = C[e,w,f]* conj(C)[i,j,k]* Tmp[f,k]
+    R2 = @ncon([C, conj(C), Tmp],[[-1,-3,1],[-2,-4,2],[1,2]])
     a = size(R2,1) * size(R2,2)
     b = size(R2,3) * size(R2,4)
     R2mat = reshape(R2,(a,b))
 
     #S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
-    @tensoropt S1[x,i,d,j] = A[x,y,d]* conj(A)[i,y,j]
-
+    S1 = @ncon([A, conj(A)],[[-1,1,-3],[-2,1,-4]])
+    #@tensoropt S1[x,i,d,j] = A[x,y,d]* conj(A)[i,y,j]
     a = size(S1,1) * size(S1,2)
     b = size(S1,3) * size(S1,4)
     S1 = reshape(S1,(a,b))
     #Tmp = contract('bizz->bi', R2)
-    @tensoropt Tmp[b,i] = A[b,i,z,z]
+    #@tensoropt Tmp[b,i] = R2[b,i,z,z]
+    #Tmp = @ncon([R2],[[-1,-2,1,1]])
+    # This gave an error.
+    # do not use `ncon` for less than two tensors
+
+    @einsum Tmp[x,y] = R2[x,y,b,b]
 
     #R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
-    @tensoropt R3[a,i,w,j] = B[a,w,b]* conj(B)[i,j,k]* Tmp[b,k]
-
+    #@tensoropt R3[a,i,w,j] = B[a,w,b]* conj(B)[i,j,k]* Tmp[b,k]
+    R3 = @ncon([B, conj(B), Tmp],[[-1,-3,1],[-2,-4,2],[1,2]])
     a = size(R3,1) * size(R3,2)
     b = size(R3,3) * size(R3,4)
     R3mat = reshape(R3,(a,b))
 
-    @tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
 
-    a = int(sqrt(size(Kprime,1)))
-    b = int(sqrt(size(Kprime,2)))
+    #@tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
+    Kprime = @ncon([S1,S2,R2mat,transpose(R3mat),transpose(S1)],[[-1,1],[1,2],[2,3],[3,4],[4,-2]])
+
+    a = Int(sqrt(size(Kprime,1)))
+    b = Int(sqrt(size(Kprime,2)))
     K = reshape(Kprime,(b,a,b,a))  # K_x1,x2,x3,x4
-    U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut))
+    U, s1, UL = tensorsvd(K,[0,2],[1,3],Int(Dcut))
+
 
     # Now finding "V"
     #S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
-    @tensoropt S1[j,p,k,q] = A[i,j,k]* conj(A)[i,p,q]
+    #@tensoropt S1[j,p,k,q] = A[i,j,k]* conj(A)[i,p,q]
+    S1 = @ncon([A, conj(A)],[[1,-1,-3],[1,-2,-4]])
 
     a = size(S1,1) * size(S1,2)
     b = size(S1,3) * size(S1,4)
@@ -149,7 +162,9 @@ function coarse_graining(in1, in2, in3, in4)
 
     #R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp) # Use 'Tmp' from above
 
-    @tensoropt R3[i,p,j,q] = B[i,j,k]* conj(B)[p,q,r]* Tmp[k,r]
+    #@tensoropt R3[i,p,j,q] = B[i,j,k]* conj(B)[p,q,r]* Tmp[k,r]
+
+    R3 = @ncon([B, conj(B), Tmp],[[-1,-3,1],[-2,-4,2],[1,2]])
 
     a = size(R3,1) * size(R3,2)
     b = size(R3,3) * size(R3,4)
@@ -157,17 +172,23 @@ function coarse_graining(in1, in2, in3, in4)
 
 
     #Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
+    #@tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
 
-    @tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
+    Kprime = @ncon([S1,S2,R2mat,transpose(R3mat),transpose(S1)],[[-1,1],[1,2],[2,3],[3,4],[4,-2]])
 
-    a = int(sqrt(size(Kprime,1)))
-    b = int(sqrt(size(Kprime,2)))
+    a = Int(sqrt(size(Kprime,1)))
+    b = Int(sqrt(size(Kprime,2)))
     K = reshape(Kprime,(b,a,b,a))
-    V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)
+    V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)  # STUCK HERE!
 
-    @tensoropt Tmp1[c,q,i,x] = D[c,q,p]* U[p,i,x]
-    @tensoropt Tmp2[b,i,q,y] = D[b,j,i]* V[q,j,y]
-    @tensoropt Tmp3[c,x,b,y] = Tmp1[c,q,i,x]* Tmp2[b,i,q,y]
+    #@tensoropt Tmp1[c,q,i,x] = D[c,q,p]* U[p,i,x]
+    #@tensoropt Tmp2[b,i,q,y] = D[b,j,i]* V[q,j,y]
+    #@tensoropt Tmp3[c,x,b,y] = Tmp1[c,q,i,x]* Tmp2[b,i,q,y]
+
+    Tmp1 = @ncon([D, U],[[-1,-2,1],[1,-3,-4]])
+    Tmp2 = @ncon([D, V],[[-1,1,-2],[-3,1,-4]])
+    Tmp3 = @ncon([Tmp1, Tmp2],[[-1,1,2,-2],[-3,2,1,-4]])
+
 
     #Tmp1 = contract('cqp,pix -> cqix',D,U)
     #Tmp2 = contract('bji,qjy -> biqy',D,V)
