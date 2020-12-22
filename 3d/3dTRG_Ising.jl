@@ -3,7 +3,6 @@
 # https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Index-notation-with-macros
 # A useful MATLAB-Python-Julia cheatsheet is https://cheatsheets.quantecon.org/
 
-
 import Pkg; Pkg.add("Einsum")
 using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates
 
@@ -11,8 +10,8 @@ println("Started: " , Dates.format(now(), "HH:MM:SS "), "on ", today())
 Temp = 4.5115;
 h = 0.0;
 beta = 1.0/Temp;
-Niter = 2;
-Dcut = 5;
+Niter = 15;
+Dcut = 15;
 
 A1 = zeros(2,2,2)
 B1 = zeros(2,2,2)
@@ -46,11 +45,12 @@ function tensorsvd(input,left,right,chi)
     V = F.Vt
 
     if chi < size(s)[1]
-        s = s[:chi]
-        U = U[:,:chi]
-        V = V[:chi,:]
+        s = s[1:chi,1:chi]
+        U = U[:,1:chi]
+        V = V[1:chi,:]
     else
         chi = size(s)[1]
+        s = s[1:chi,1:chi]
     end
 
     U = reshape(U, Tuple(vcat(left_index_list, [chi])))
@@ -119,11 +119,15 @@ function coarse_graining(in1, in2, in3, in4)
     # This gave an error.
     # do not use `ncon` for less than two tensors
 
-    @einsum Tmp[x,y] = R2[x,y,b,b]
+    R2size1 = size(R2)[1]
+    R2size2 = size(R2)[2]
+    dum = zeros(R2size1,R2size2)
+    @einsum dum[x,y] = R2[x,y,b,b]
+    R2 = dum
 
     #R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
     #@tensoropt R3[a,i,w,j] = B[a,w,b]* conj(B)[i,j,k]* Tmp[b,k]
-    R3 = @ncon([B, conj(B), Tmp],[[-1,-3,1],[-2,-4,2],[1,2]])
+    R3 = @ncon([B, conj(B), R2],[[-1,-3,1],[-2,-4,2],[1,2]])
     a = size(R3,1) * size(R3,2)
     b = size(R3,3) * size(R3,4)
     R3mat = reshape(R3,(a,b))
@@ -135,7 +139,6 @@ function coarse_graining(in1, in2, in3, in4)
     b = Int(sqrt(size(Kprime,2)))
     K = reshape(Kprime,(b,a,b,a))  # K_x1,x2,x3,x4
     U, s1, UL = tensorsvd(K,[1,3],[2,4],Int(Dcut))
-
 
     # Now finding "V"
     #S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
@@ -150,7 +153,7 @@ function coarse_graining(in1, in2, in3, in4)
 
     #@tensoropt R3[i,p,j,q] = B[i,j,k]* conj(B)[p,q,r]* Tmp[k,r]
 
-    R3 = @ncon([B, conj(B), Tmp],[[-1,-3,1],[-2,-4,2],[1,2]])
+    R3 = @ncon([B, conj(B), R2],[[-1,-3,1],[-2,-4,2],[1,2]])
 
     a = size(R3,1) * size(R3,2)
     b = size(R3,3) * size(R3,4)
@@ -166,7 +169,6 @@ function coarse_graining(in1, in2, in3, in4)
     K = reshape(Kprime,(b,a,b,a))
 
     V, s1, VL = tensorsvd(K,[1,3],[2,4],Int(Dcut))
-
     #@tensoropt Tmp1[c,q,i,x] = D[c,q,p]* U[p,i,x]
     #@tensoropt Tmp2[b,i,q,y] = D[b,j,i]* V[q,j,y]
     #@tensoropt Tmp3[c,x,b,y] = Tmp1[c,q,i,x]* Tmp2[b,i,q,y]
@@ -174,7 +176,6 @@ function coarse_graining(in1, in2, in3, in4)
     Tmp1 = @ncon([D, U],[[-1,-2,1],[1,-3,-4]])
     Tmp2 = @ncon([D, V],[[-1,1,-2],[-3,1,-4]])
     Tmp3 = @ncon([Tmp1, Tmp2],[[-1,1,2,-2],[-3,2,1,-4]])
-
 
     #Tmp1 = contract('cqp,pix -> cqix',D,U)
     #Tmp2 = contract('bji,qjy -> biqy',D,V)
@@ -185,20 +186,21 @@ function coarse_graining(in1, in2, in3, in4)
 
     MC = @ncon([B, C],[[-1,1,-3],[-2,1,-4]])
 
-
     #MC = contract('ijk,pjr->ipkr', B, C)
     #Tmp = contract('ijab,azc,cxby->ijyxz', MC, C, Tmp3)
 
     Tmp = @ncon([MC, C, Tmp3],[[-1,-2,1,2],[1,-5,3],[3,-4,2,-3]])
-    G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) # STUCK HERE on 22/12/20
-    # TODO
+    G, st, D = tensorsvd(Tmp,[1,2,3],[4,5],5)
 
-    G = @ncon([G, st],[[-1,-2,-3,1],[1,-4]])
+    #G = @ncon([G, st],[[-1,-2,-3,1],[1,-4]])
+    @einsum   G[i,j,k,l] = G[i,j,k,a] * st[a,l]
     #G = contract('ijka,al->ijkl', G, st)
+    # Was STUCK HERE on 22/12/20 since somehow NCON doesn't like this!~!
 
     # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
     #Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
     Tmp1 = @ncon([conj(U), A],[[1,-1,-2],[1,-3,-4]])
+
 
     Tmp2 = @ncon([conj(V), A],[[-1,1,-2],[-3,1,-4]])
     #Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
@@ -206,31 +208,24 @@ function coarse_graining(in1, in2, in3, in4)
     DC = @ncon([Tmp1, Tmp2],[[1,-1,2,-2],[2,-3,1,-4]])
     #DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
 
-
     #DC = contract('dzb,xayd->zxyab', B, DC)
     DC = @ncon([B, DC],[[1,-1,-5],[-2,-4,-3,1]])
 
     Tmp2 = @ncon([DC, G],[[-1,-2,-3,1,2],[1,2,-4,-5]])
     #Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
-    A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut)
 
-    println("IN CG")
-    println("...")
-
-    MCprime = @ncon([st2, MCprime],[[-1,1],[1,-2,-3,-4]])
-    #MCprime = contract('ij,jklm->iklm', st2, MCprime)
-    B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-
+    A, st2, MCprime = tensorsvd(Tmp2,[1,2],[3,4,5],Dcut)
+    @einsum  MCprime[i,k,l,m] = st2[i,j] * MCprime[j,k,l,m]
+    B, st3, C = tensorsvd(MCprime,[1,2],[3,4],Dcut)
 
     # Split singular piece here!
-    sing = sqrt(st3)
+    sing = st3^0.50 #TODO
+    # Can't take square root of matrix. May be linked to NCON error above
 
-    B = @ncon([B, sing],[[-1,-2,1],[1,-3]])
-    C = @ncon([sing, C],[[-1,1],[1,-2,-3]])
-    #B = contract('ijk,kp->ijp', B, sing)
-    #C = contract('kj,jip->kip', sing, C)
-    println("DONE one STEP of CG")
-
+    #B = @ncon([B, sing],[[-1,-2,1],[1,-3]])
+    #C = @ncon([sing, C],[[-1,1],[1,-2,-3]])
+    @einsum  B[i,j,p] = B[i,j,k] * sing[k,p]
+    @einsum  C[k,i,p] = sing[k,j] * C[j,i,p]
 
     return A,B,C,D
 
@@ -257,7 +252,7 @@ for p = 1:Nsteps
         A, B, C, D = coarse_graining(A,B,C,D)
         #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
         T = @ncon([A, B, C, D],[[-1,-3,1],[1,-5,2],[2,-6,3],[3,-4,-2]])
-        norm = max(T)
+        norm = maximum(T)
         div = sqrt(sqrt(norm))
 
         A  /= div
@@ -283,13 +278,14 @@ for p = 1:Nsteps
             Tmp5 = @ncon([C, conj(C)],[[-1,1,-2],[-3,1,-4]])
             #Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
 
-            Z = @ncon([Tmp5, Tmp4, Tmp2],[[1,2,3,4],[1,3],[2,4]])
+            #Z = @ncon([Tmp5, Tmp4, Tmp2],[[1,2,3,4],[1,3],[2,4]])
+            Z = .0
+            @einsum  Z = Tmp5[b,c,k,m] * Tmp4[b,k] * Tmp2[c,m]
             #Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
             # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
-
-            Free = -(temp[p])*(CU + (np.log(Z)/(2.0^Niter)))
+            Free = -(temp[p])*(CU + (log(Z)/(2.0^Niter)))
             f[p] = -Free/temp[p]
-            println(round(temp[p], digits=8),round(Free, digits=8))
+            println(round(temp[p], digits=8), "  ", round(Free, digits=8))
         end
     end
 end
