@@ -3,11 +3,11 @@
 # https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Index-notation-with-macros
 # A useful MATLAB-Python-Julia cheatsheet is https://cheatsheets.quantecon.org/
 
+
 import Pkg; Pkg.add("Einsum")
 using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates
 
 println("Started: " , Dates.format(now(), "HH:MM:SS "), "on ", today())
-
 Temp = 4.5115;
 h = 0.0;
 beta = 1.0/Temp;
@@ -23,25 +23,18 @@ function tensorsvd(input,left,right,chi)
     #Reshape an input tensor into a rectangular matrix with first index corresponding
     #to left set of indices and second index corresponding to right set of indices. Do SVD
     #and then reshape U and V to tensors [left,D] x [D,right]
-    #T = np.transpose(input,left+right)
-    left = left .+ 1
-    right = right .+ 1
-    a = Tuple(append!(left, right))
+
+    a = Tuple(vcat(left, right)) # Never use append here!
     T = permutedims(input, a)
     left_index_list = []
-    #for i in range(size(left))
     for i = 1:length(left)
-        #println(i)
-        #left_index_list.append(T.shape[i])
-        append!(left_index_list, size(T, i)) # HERE!
+        append!(left_index_list, size(T, i))
     end
 
     xsize = prod(left_index_list)
     right_index_list = []
 
-    #for i in range(len(left),len(left)+len(right)):
-    for i = length(left)+1:length(left)+length(right)
-        #right_index_list.append(T.shape[i])
+    for i = length(left):length(left)+length(right)-1
         append!(right_index_list, size(T, i+1))
     end
     ysize = prod(right_index_list)
@@ -52,19 +45,16 @@ function tensorsvd(input,left,right,chi)
     s = Diagonal(F.S)
     V = F.Vt
 
-    if chi < length(s)
+    if chi < size(s)[1]
         s = s[:chi]
         U = U[:,:chi]
         V = V[:chi,:]
     else
-        chi = length(s)
+        chi = size(s)[1]
     end
 
-    #t1 = left .+ chi
-    # Uncomment these two lines! #TODO
-    #U = reshape(U, Tuple(left_index_list+[chi]))
-    #V = reshape(V,[chi]+right_index_list)
-    println("Done with SVD routine!!")
+    U = reshape(U, Tuple(vcat(left_index_list, [chi])))
+    V = reshape(V, Tuple(vcat([chi],right_index_list)))
 
     return U, s, V
 
@@ -87,8 +77,6 @@ function Z3d_Ising(beta)
     return A1, B1, C1, D1
 
 end
-
-# @tensoropt D[a,b,c,d] := A[a,e,c,f]*B[g,d,e]*C[g,f,b]
 
 function coarse_graining(in1, in2, in3, in4)
 
@@ -140,14 +128,13 @@ function coarse_graining(in1, in2, in3, in4)
     b = size(R3,3) * size(R3,4)
     R3mat = reshape(R3,(a,b))
 
-
     #@tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
     Kprime = @ncon([S1,S2,R2mat,transpose(R3mat),transpose(S1)],[[-1,1],[1,2],[2,3],[3,4],[4,-2]])
 
     a = Int(sqrt(size(Kprime,1)))
     b = Int(sqrt(size(Kprime,2)))
     K = reshape(Kprime,(b,a,b,a))  # K_x1,x2,x3,x4
-    U, s1, UL = tensorsvd(K,[0,2],[1,3],Int(Dcut))
+    U, s1, UL = tensorsvd(K,[1,3],[2,4],Int(Dcut))
 
 
     # Now finding "V"
@@ -159,7 +146,6 @@ function coarse_graining(in1, in2, in3, in4)
     b = size(S1,3) * size(S1,4)
     S1 = reshape(S1,(a,b))
 
-
     #R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp) # Use 'Tmp' from above
 
     #@tensoropt R3[i,p,j,q] = B[i,j,k]* conj(B)[p,q,r]* Tmp[k,r]
@@ -170,7 +156,6 @@ function coarse_graining(in1, in2, in3, in4)
     b = size(R3,3) * size(R3,4)
     R3mat = reshape(R3,(a,b))
 
-
     #Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
     #@tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
 
@@ -179,7 +164,8 @@ function coarse_graining(in1, in2, in3, in4)
     a = Int(sqrt(size(Kprime,1)))
     b = Int(sqrt(size(Kprime,2)))
     K = reshape(Kprime,(b,a,b,a))
-    V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)  # STUCK HERE!
+
+    V, s1, VL = tensorsvd(K,[1,3],[2,4],Int(Dcut))
 
     #@tensoropt Tmp1[c,q,i,x] = D[c,q,p]* U[p,i,x]
     #@tensoropt Tmp2[b,i,q,y] = D[b,j,i]* V[q,j,y]
@@ -199,11 +185,13 @@ function coarse_graining(in1, in2, in3, in4)
 
     MC = @ncon([B, C],[[-1,1,-3],[-2,1,-4]])
 
+
     #MC = contract('ijk,pjr->ipkr', B, C)
     #Tmp = contract('ijab,azc,cxby->ijyxz', MC, C, Tmp3)
 
     Tmp = @ncon([MC, C, Tmp3],[[-1,-2,1,2],[1,-5,3],[3,-4,2,-3]])
-    G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut)
+    G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) # STUCK HERE on 22/12/20
+    # TODO
 
     G = @ncon([G, st],[[-1,-2,-3,1],[1,-4]])
     #G = contract('ijka,al->ijkl', G, st)
@@ -226,6 +214,8 @@ function coarse_graining(in1, in2, in3, in4)
     #Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
     A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut)
 
+    println("IN CG")
+    println("...")
 
     MCprime = @ncon([st2, MCprime],[[-1,1],[1,-2,-3,-4]])
     #MCprime = contract('ij,jklm->iklm', st2, MCprime)
@@ -239,6 +229,7 @@ function coarse_graining(in1, in2, in3, in4)
     C = @ncon([sing, C],[[-1,1],[1,-2,-3]])
     #B = contract('ijk,kp->ijp', B, sing)
     #C = contract('kj,jip->kip', sing, C)
+    println("DONE one STEP of CG")
 
 
     return A,B,C,D
@@ -251,16 +242,6 @@ if Dcut < 4
     end
 
 
-#dumA = randn(5,5,5,5,5,5)
-#dumB = randn(5,5,5)
-#D = zeros(5,5,5)
-#@einsum    D[a,b,c] = A[a,e,f,c,f,g]*B[g,b,e]
-#dumD = @ncon([dumA, dumB],[[-1,1,2,-3,2,4],[4,-2,1]])
-# Prefer 'ncon'. Einsum and NCON gives same answer above~ Checked!
-
-#temp = arange(4.5115, 4.5116, 0.02).tolist()
-#temp = 4.5115:0.02:4.5116
-#temp = LinRange(4.5115, 0.02, 4.5116)
 temp = collect(4.5115:0.02:4.5117)
 println(temp)
 Nsteps = size(temp,1)
@@ -268,7 +249,6 @@ f = zeros(Nsteps)
 
 for p = 1:Nsteps
 
-    println("Moving on...")
     A, B, C, D = Z3d_Ising(1.0/temp[p]);
     CU = 0.0;
 
@@ -314,7 +294,4 @@ for p = 1:Nsteps
     end
 end
 
-#A, B, C, D = Z3d_Ising(beta)
-#println("Norm of A ", norm(A))
-#println(size(A,1))
 println("Finished: " , Dates.format(now(), "HH:MM:SS "), "on ", today())
