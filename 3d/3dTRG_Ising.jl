@@ -2,8 +2,10 @@
 # Check for tensor computations:
 # https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Index-notation-with-macros
 # A useful MATLAB-Python-Julia cheatsheet is https://cheatsheets.quantecon.org/
-# Niter=15 and Dcut=30 takes 1619 seconds while it takes 480 seconds in Python.
-# Seems like should get rid of "einsums" completely.
+
+# Niter=15 & Dcut=34 takes ~408 seconds while it takes ~262 seconds in Python.
+# Niter=15 & Dcut=30 takes ~198 seconds while it takes ~118 seconds in Python.
+# Niter=15 & Dcut=25 takes ~75 seconds while it takes ~43 seconds in Python.
 
 import Pkg; Pkg.add("Einsum")
 using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates
@@ -13,7 +15,7 @@ Temp = 4.5115;
 h = 0.0;
 beta = 1.0/Temp;
 Niter = 15;
-Dcut = 15;
+Dcut = 25;
 
 A1 = zeros(2,2,2)
 B1 = zeros(2,2,2)
@@ -129,7 +131,9 @@ function coarse_graining(in1, in2, in3, in4)
     R3mat = reshape(R3,(a,b))
 
     #@tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
-    Kprime = @ncon([S1,S2,R2mat,transpose(R3mat),transpose(S1)],[[-1,1],[1,2],[2,3],[3,4],[4,-2]])
+    #Kprime = @ncon([S1,S2,R2mat,transpose(R3mat),transpose(S1)],[[-1,1],[1,2],[2,3],[3,4],[4,-2]])
+
+    Kprime = S1 * S2 * R2mat * transpose(R3mat) * transpose(S1)
 
     a = Int(sqrt(size(Kprime,1)))
     b = Int(sqrt(size(Kprime,2)))
@@ -187,7 +191,7 @@ function coarse_graining(in1, in2, in3, in4)
     #Tmp = contract('ijab,azc,cxby->ijyxz', MC, C, Tmp3)
 
     Tmp = @ncon([MC, in3, Tmp3],[[-1,-2,1,2],[1,-5,3],[3,-4,2,-3]])
-    G, st, out4 = tensorsvd(Tmp,[1,2,3],[4,5],5)
+    G, st, out4 = tensorsvd(Tmp,[1,2,3],[4,5],Dcut)
 
     #G = @ncon([G, st],[[-1,-2,-3,1],[1,-4]])
     @einsum   G[i,j,k,l] = G[i,j,k,a] * st[a,l]
@@ -247,9 +251,11 @@ for p = 1:Nsteps
 
         A, B, C, D = coarse_graining(A,B,C,D)
         #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-        T = @ncon([A, B, C, D],[[-1,-3,1],[1,-5,2],[2,-6,3],[3,-4,-2]])
-        norm = maximum(T)
+        #T = @ncon([A, B, C, D],[[-1,-3,1],[1,-5,2],[2,-6,3],[3,-4,-2]])
+        #norm = maximum(T)
         #println("Max is ", norm)
+
+        norm = maximum(A)*maximum(B)*maximum(C)*maximum(D)
         div = sqrt(sqrt(norm))
 
         A  /= div
