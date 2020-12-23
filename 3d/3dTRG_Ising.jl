@@ -3,9 +3,11 @@
 # https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Index-notation-with-macros
 # A useful MATLAB-Python-Julia cheatsheet is https://cheatsheets.quantecon.org/
 
-# Niter=15 & Dcut=34 takes ~408 seconds while it takes ~262 seconds in Python.
-# Niter=15 & Dcut=30 takes ~198 seconds while it takes ~118 seconds in Python.
-# Niter=15 & Dcut=25 takes ~75 seconds while it takes ~43 seconds in Python.
+"""
+Niter=15 & Dcut=34 takes ~220 seconds while it takes ~262 seconds in Python.
+Niter=15 & Dcut=30 takes ~113 seconds while it takes ~118 seconds in Python.
+Niter=15 & Dcut=25 takes ~34 seconds while it takes ~43 seconds in Python.
+"""
 
 import Pkg; Pkg.add("Einsum")
 using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates
@@ -194,9 +196,13 @@ function coarse_graining(in1, in2, in3, in4)
     G, st, out4 = tensorsvd(Tmp,[1,2,3],[4,5],Dcut)
 
     #G = @ncon([G, st],[[-1,-2,-3,1],[1,-4]])
-    @einsum   G[i,j,k,l] = G[i,j,k,a] * st[a,l]
-    #G = contract('ijka,al->ijkl', G, st)
+    Gtmp = reshape(G,(size(G,1)*size(G,2)*size(G,3),Int(size(G,4))))
+    Gtmp = Gtmp * st
+    G = reshape(Gtmp,(size(G,1),size(G,2),size(G,3),Int(size(st,2))))
+    #@einsum   G[i,j,k,l] = G[i,j,k,a] * st[a,l]  # Slower than above
     # Was STUCK HERE on 22/12/20 since somehow NCON doesn't like this!~!
+
+
 
     # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
     #Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
@@ -216,7 +222,12 @@ function coarse_graining(in1, in2, in3, in4)
     #Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
 
     out1, st2, MCprime = tensorsvd(Tmp2,[1,2],[3,4,5],Dcut)
-    @einsum  MCprime[i,k,l,m] = st2[i,j] * MCprime[j,k,l,m]
+    #@einsum  MCprime[i,k,l,m] = st2[i,j] * MCprime[j,k,l,m]
+    MCprimetmp = reshape(MCprime,(size(MCprime,1),size(MCprime,2)*size(MCprime,3)*size(MCprime,4)))
+    MCprimetmp = st2 * MCprimetmp
+    MCprime = reshape(MCprimetmp,(size(st2,1),size(MCprime,2),size(MCprime,3),size(MCprime,4)))
+
+
     out2, st3, out3 = tensorsvd(MCprime,[1,2],[3,4],Dcut)
 
     # Split singular piece here!
@@ -225,8 +236,17 @@ function coarse_graining(in1, in2, in3, in4)
 
     #out2 = @ncon([out2, sing],[[-1,-2,1],[1,-3]])
     #out3 = @ncon([sing, out3],[[-1,1],[1,-2,-3]])
-    @einsum  out2[i,j,p] = out2[i,j,k] * sing[k,p]
-    @einsum  out3[k,i,p] = sing[k,j] * out3[j,i,p]
+    #@einsum  out2[i,j,p] = out2[i,j,k] * sing[k,p]
+
+    out2tmp = reshape(out2,(size(out2,1)*size(out2,2),size(out2,3)))
+    out2tmp = out2tmp * sing
+    out2 = reshape(out2tmp,(size(out2,1),size(out2,2),size(sing,2)))
+
+    out3tmp = reshape(out3,(size(out3,1),size(out3,2)*size(out3,3)))
+    out3tmp = sing * out3tmp
+    out3 = reshape(out3tmp,(size(sing,1),size(out3,2),size(out3,3)))
+
+    #@einsum  out3[k,i,p] = sing[k,j] * out3[j,i,p]
 
     return out1,out2,out3,out4
 
