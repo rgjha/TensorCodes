@@ -4,9 +4,9 @@
 # A useful MATLAB-Python-Julia cheatsheet is https://cheatsheets.quantecon.org/
 
 """
-Niter=15 & Dcut=34 takes ~220 seconds while it takes ~262 seconds in Python.
-Niter=15 & Dcut=30 takes ~113 seconds while it takes ~118 seconds in Python.
-Niter=15 & Dcut=25 takes ~34 seconds while it takes ~43 seconds in Python.
+Niter=15 & Dcut=34 takes ~215 seconds while it takes ~262 seconds in Python.
+Niter=15 & Dcut=30 takes ~95 seconds while it takes ~118 seconds in Python.
+Niter=15 & Dcut=25 takes ~35 seconds while it takes ~43 seconds in Python.
 """
 
 import Pkg; Pkg.add("Einsum")
@@ -84,7 +84,6 @@ end
 
 function coarse_graining(in1, in2, in3, in4)
 
-
     #S2 = contract('dze,izj->diej', B, conjugate(B))
     #@tensoropt S2[d,i,e,j] = B[d,z,e]* conj(B)[i,z,j]
     S2 = @ncon([in2, conj(in2)],[[-1,1,-3],[-2,1,-4]])
@@ -122,8 +121,9 @@ function coarse_graining(in1, in2, in3, in4)
     R2size1 = size(R2)[1]
     R2size2 = size(R2)[2]
     dum = zeros(R2size1,R2size2)
-    @einsum dum[x,y] = R2[x,y,b,b]
+    @tensor dum[x,y] = R2[x,y,b,b]
     R2 = dum
+
 
     #R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
     #@tensoropt R3[a,i,w,j] = B[a,w,b]* conj(B)[i,j,k]* Tmp[b,k]
@@ -152,7 +152,6 @@ function coarse_graining(in1, in2, in3, in4)
     S1 = reshape(S1,(a,b))
 
     #R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp) # Use 'Tmp' from above
-
     #@tensoropt R3[i,p,j,q] = B[i,j,k]* conj(B)[p,q,r]* Tmp[k,r]
 
     R3 = @ncon([in2, conj(in2), R2],[[-1,-3,1],[-2,-4,2],[1,2]])
@@ -163,7 +162,6 @@ function coarse_graining(in1, in2, in3, in4)
 
     #Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
     #@tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
-
     #Kprime = @ncon([S1,S2,R2mat,transpose(R3mat),transpose(S1)],[[-1,1],[1,2],[2,3],[3,4],[4,-2]])
     Kprime = S1 * S2 * R2mat * transpose(R3mat) * transpose(S1)
 
@@ -172,9 +170,10 @@ function coarse_graining(in1, in2, in3, in4)
     K = reshape(Kprime,(b,a,b,a))
 
     V, s1, VL = tensorsvd(K,[1,3],[2,4],Int(Dcut))
-    #@tensoropt Tmp1[c,q,i,x] = D[c,q,p]* U[p,i,x]
-    #@tensoropt Tmp2[b,i,q,y] = D[b,j,i]* V[q,j,y]
-    #@tensoropt Tmp3[c,x,b,y] = Tmp1[c,q,i,x]* Tmp2[b,i,q,y]
+    #@einsum Tmp1[c,q,i,x] = in4[c,q,p]* U[p,i,x]
+    #@einsum Tmp2[b,i,q,y] = in4[b,j,i]* V[q,j,y]
+    #@einsum Tmp3[c,x,b,y] = Tmp1[c,q,i,x]* Tmp2[b,i,q,y]
+
 
     Tmp1 = @ncon([in4, U],[[-1,-2,1],[1,-3,-4]])
     Tmp2 = @ncon([in4, V],[[-1,1,-2],[-3,1,-4]])
@@ -201,8 +200,6 @@ function coarse_graining(in1, in2, in3, in4)
     G = reshape(Gtmp,(size(G,1),size(G,2),size(G,3),Int(size(st,2))))
     #@einsum   G[i,j,k,l] = G[i,j,k,a] * st[a,l]  # Slower than above
     # Was STUCK HERE on 22/12/20 since somehow NCON doesn't like this!~!
-
-
 
     # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
     #Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
@@ -283,7 +280,6 @@ for p = 1:Nsteps
         C  /= div
         D  /= div
         CU += log(norm)/(2.0^(iter))
-        #println("Norm is ", CU)
 
         if iter == Niter
 
@@ -302,10 +298,9 @@ for p = 1:Nsteps
             Tmp5 = @ncon([C, conj(C)],[[-1,1,-2],[-3,1,-4]])
             #Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
 
-            #Z = @ncon([Tmp5, Tmp4, Tmp2],[[1,2,3,4],[1,3],[2,4]])
             Z = .0
-            @einsum  Z = Tmp5[b,c,k,m] * Tmp4[b,k] * Tmp2[c,m]
-            #Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
+            #Z = @ncon([Tmp5, Tmp4, Tmp2],[[1,2,3,4],[1,3],[2,4]])
+            @tensor  Z = Tmp5[b,c,k,m] * Tmp4[b,k] * Tmp2[c,m]
             # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
             Free = -(temp[p])*(CU + (log(Z)/(2.0^Niter)))
             f[p] = -Free/temp[p]
