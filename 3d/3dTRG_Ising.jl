@@ -9,20 +9,24 @@ Niter=15 & Dcut=30 takes ~95 seconds while it takes ~118 seconds in Python.
 Niter=15 & Dcut=25 takes ~35 seconds while it takes ~43 seconds in Python.
 """
 
-import Pkg; Pkg.add("Einsum")
-using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates
+import Pkg;
+Pkg.add("Einsum")
+Pkg.add("TensorCast")
+using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates, TensorCast
 
 println("Started: " , Dates.format(now(), "HH:MM:SS "), "on ", today())
 Temp = 4.5115;
 h = 0.0;
 beta = 1.0/Temp;
 Niter = 15;
-Dcut = 25;
+Dcut = 34;
 
-A1 = zeros(2,2,2)
-B1 = zeros(2,2,2)
-C1 = zeros(2,2,2)
-D1 = zeros(2,2,2)
+macro ltime(expr)
+    quote
+        print("On Line: ", $(__source__.line), ": ")
+        @time $(esc(expr))
+    end
+end
 
 function tensorsvd(input,left,right,chi)
     #Reshape an input tensor into a rectangular matrix with first index corresponding
@@ -73,10 +77,10 @@ function Z3d_Ising(beta)
     #@tensor out[:] := W[1,-1]*W[1,-2]*W[1,-3]*W[1,-4]*W[1,-5]*W[1,-6]
     #Id = Matrix{Float64}(I, 2, 2)
     Id = Matrix(1.0I, 2, 2)
-    @einsum A1[x,y,a] = W[a,x] * W[a,y]
-    @einsum B1[a,z,b] = Id[a,b] * W[a,z]
-    @einsum C1[b,z,c] = Id[b,c] * W[b,z]
-    @einsum D1[c,y,x] = W[c,y] * W[c,x]
+    @einsum A1[x,y,a] := W[a,x] * W[a,y]
+    @einsum B1[a,z,b] := Id[a,b] * W[a,z]
+    @einsum C1[b,z,c] := Id[b,c] * W[b,z]
+    @einsum D1[c,y,x] := W[c,y] * W[c,x]
 
     return A1, B1, C1, D1
 
@@ -120,10 +124,9 @@ function coarse_graining(in1, in2, in3, in4)
 
     R2size1 = size(R2)[1]
     R2size2 = size(R2)[2]
-    dum = zeros(R2size1,R2size2)
-    @tensor dum[x,y] = R2[x,y,b,b]
-    R2 = dum
+    @tensor dum[x,y] := R2[x,y,b,b]
 
+    R2 = dum
 
     #R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
     #@tensoropt R3[a,i,w,j] = B[a,w,b]* conj(B)[i,j,k]* Tmp[b,k]
@@ -134,7 +137,6 @@ function coarse_graining(in1, in2, in3, in4)
 
     #@tensoropt Kprime[i,e] = S1[i,a]*S2[a,b]*R2mat[b,c]*transpose(R3mat)[c,d]*transpose(S1)[d,e]
     #Kprime = @ncon([S1,S2,R2mat,transpose(R3mat),transpose(S1)],[[-1,1],[1,2],[2,3],[3,4],[4,-2]])
-
     Kprime = S1 * S2 * R2mat * transpose(R3mat) * transpose(S1)
 
     a = Int(sqrt(size(Kprime,1)))
@@ -176,22 +178,21 @@ function coarse_graining(in1, in2, in3, in4)
 
 
     Tmp1 = @ncon([in4, U],[[-1,-2,1],[1,-3,-4]])
+    """
+    in4tmp = reshape(in4,(size(in4,1)*size(in4,2),size(in4,3)))
+    Utmp = reshape(U,(size(U,1),size(U,2)*size(U,3)))
+    Tmp1tmp = in4tmp * Utmp
+    Tmp1 = reshape(Tmp1tmp,(size(in4,1),size(in4,2),size(U,2),size(U,3)))
+    """
+
     Tmp2 = @ncon([in4, V],[[-1,1,-2],[-3,1,-4]])
     Tmp3 = @ncon([Tmp1, Tmp2],[[-1,1,2,-2],[-3,2,1,-4]])
 
-    #Tmp1 = contract('cqp,pix -> cqix',D,U)
-    #Tmp2 = contract('bji,qjy -> biqy',D,V)
-    #Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
-    #Tmp = contract('ijkl,klabc->ijabc', MC, UC)
-    #UC = contract('azc,cxby -> abyxz',C,Tmp3)
-
-
     MC = @ncon([in2, in3],[[-1,1,-3],[-2,1,-4]])
 
-    #MC = contract('ijk,pjr->ipkr', B, C)
-    #Tmp = contract('ijab,azc,cxby->ijyxz', MC, C, Tmp3)
-
     Tmp = @ncon([MC, in3, Tmp3],[[-1,-2,1,2],[1,-5,3],[3,-4,2,-3]])
+    #@tensoropt Tmp[i,j,y,x,z] := MC[i,j,a,b]* in3[a,z,c]* Tmp3[c,x,b,y]
+
     G, st, out4 = tensorsvd(Tmp,[1,2,3],[4,5],Dcut)
 
     #G = @ncon([G, st],[[-1,-2,-3,1],[1,-4]])
@@ -200,6 +201,9 @@ function coarse_graining(in1, in2, in3, in4)
     G = reshape(Gtmp,(size(G,1),size(G,2),size(G,3),Int(size(st,2))))
     #@einsum   G[i,j,k,l] = G[i,j,k,a] * st[a,l]  # Slower than above
     # Was STUCK HERE on 22/12/20 since somehow NCON doesn't like this!~!
+
+    #@matmul Gtmp[(i,l,m),j] = sum(k) G[(i,l,m),k] * st[k,j]
+    #G = reshape(Gtmp,(size(G,1),size(G,2),size(G,3),Int(size(st,2))))
 
     # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
     #Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
@@ -231,19 +235,14 @@ function coarse_graining(in1, in2, in3, in4)
     sing = st3^0.500 #TODO
     # Can't take square root of matrix. May be linked to NCON error above
 
-    #out2 = @ncon([out2, sing],[[-1,-2,1],[1,-3]])
-    #out3 = @ncon([sing, out3],[[-1,1],[1,-2,-3]])
-    #@einsum  out2[i,j,p] = out2[i,j,k] * sing[k,p]
-
     out2tmp = reshape(out2,(size(out2,1)*size(out2,2),size(out2,3)))
     out2tmp = out2tmp * sing
     out2 = reshape(out2tmp,(size(out2,1),size(out2,2),size(sing,2)))
 
     out3tmp = reshape(out3,(size(out3,1),size(out3,2)*size(out3,3)))
+
     out3tmp = sing * out3tmp
     out3 = reshape(out3tmp,(size(sing,1),size(out3,2),size(out3,3)))
-
-    #@einsum  out3[k,i,p] = sing[k,j] * out3[j,i,p]
 
     return out1,out2,out3,out4
 
