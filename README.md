@@ -11,4 +11,46 @@ TNR --> https://arxiv.org/abs/1412.0732
 
 Triad --> https://arxiv.org/abs/1912.02414
 
-Please send questions/suggestions to rgjha1989@gmail.com 
+Example of how index contraction works (in Julia) where I have been playing around with different options: 1) @tensor [https://github.com/Jutho/TensorOperations.jl] 2) @einsum [https://github.com/ahwillia/Einsum.jl] 
+
+In particular, in TensorOperations, there is also added feature for NCON [https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Dynamical-tensor-network-contractions-with-ncon-and-@ncon] 
+
+For example: to execute `A_ijkl` times `B_ijpr` one can use different options as:
+
+```julia
+using TensorOperations, Einsum
+@tensor C[k,l,p,r] := A[i,j,k,l] *  B[i,j,p,r]
+@einsum C[k,l,p,r] := A[i,j,k,l] *  B[i,j,p,r]
+C := @ncon([A, B],[[1,2,-1,-2],[1,2,-3,-4]])
+```
+
+To decide which one has better timings and memory allocations, it is useful to time the single-line commands in Julia by defining a macro 
+and then calling as below:
+
+```julia
+using TensorOperations, Einsum
+
+macro ltime(expr)
+    quote
+        print("On Line: ", $(__source__.line), ": ")
+        @time $(esc(expr))
+    end
+end
+
+@ltime @tensor C[k,l,p,r] := A[i,j,k,l] *  B[i,j,p,r]
+```
+
+
+Similarly in Python, we will have
+
+```python 
+from opt_einsum import contract
+from ncon import ncon 
+import numpy as np 
+
+C = contract('ijkl,ijpr->klpr', A, B)
+C = np.einsum('ijkl,ijpr->klpr', A, B)
+C = ncon([A, B],[[1,2,-1,-2],[1,2,-3,-4]])
+```
+
+Please send questions/suggestions to rgjha1989@gmail.com
