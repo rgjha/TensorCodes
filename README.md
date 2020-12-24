@@ -1,8 +1,9 @@
 # TensorCodes
 This repository contains a random collection of codes written in Python & Julia (some are work in progress) to study several
-observables in models using HOTRG/TNR/Triad algorithms. For index contractions, mostly NCON is used
+observables in models using HOTRG/TNR/Triad algorithms. For index contractions, mostly NCON [introduced in
+https://arxiv.org/abs/1402.0939] is used
 since it is faster than "einsum" or "tensordot" in my tests. Recently, I came across "contract"
-as introduced first in https://doi.org/10.21105/joss.00753. The different algorithms employed 
+as introduced first in https://doi.org/10.21105/joss.00753. The different algorithms employed in these codes 
 were introduced in the following papers: 
 
 HOTRG --> https://arxiv.org/abs/1201.1144  
@@ -51,6 +52,10 @@ import numpy as np
 C = contract('ijkl,ijpr->klpr', A, B)
 C = np.einsum('ijkl,ijpr->klpr', A, B)
 C = ncon([A, B],[[1,2,-1,-2],[1,2,-3,-4]])
+
+# More complicated contraction example is one given below:
+out = ncon([Ux,Uy,input,input,Uy,Ux],[[3,4,-2],[1,2,-1],[1,3,5,7,10,-6],[2,4,6,8,-5,10],[5,6,-3],[7,8,-4]])
 ```
 
-Please send questions/suggestions to rgjha1989@gmail.com
+
+Please send questions/suggestions about this repository to rgjha1989@gmail.com
