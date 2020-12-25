@@ -12,14 +12,15 @@ Niter=15 & Dcut=25 takes ~35 seconds while it takes ~43 seconds in Python.
 import Pkg;
 Pkg.add("Einsum")
 Pkg.add("TensorCast")
-using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates, TensorCast
+#Pkg.add("ITensors")
+using LinearAlgebra, Statistics, TensorOperations, Einsum, Dates, TensorCast #ITensors
 
 println("Started: " , Dates.format(now(), "HH:MM:SS "), "on ", today())
 Temp = 4.5115;
 h = 0.0;
 beta = 1.0/Temp;
 Niter = 15;
-Dcut = 34;
+Dcut = 30;
 
 macro ltime(expr)
     quote
@@ -89,22 +90,22 @@ end
 function coarse_graining(in1, in2, in3, in4)
 
     #S2 = contract('dze,izj->diej', B, conjugate(B))
-    #@tensoropt S2[d,i,e,j] = B[d,z,e]* conj(B)[i,z,j]
-    S2 = @ncon([in2, conj(in2)],[[-1,1,-3],[-2,1,-4]])
+    @tensoropt S2[d,i,e,j] := in2[d,z,e] * conj(in2)[i,z,j]
+    #@ltime S2 = @ncon([in2, conj(in2)],[[-1,1,-3],[-2,1,-4]])
 
     a = size(S2,1) * size(S2,2)
     b = size(S2,3) * size(S2,4)
     S2 = reshape(S2,(a,b))
 
     #Tmp = contract('fyx,iyx->fi', D, np.conjugate(D))
-    #@tensoropt Tmp[f,i] = D[f,y,x]* conj(D)[i,y,x]
-    Tmp = @ncon([in4, conj(in4)],[[-1,1,2],[-2,1,2]])
+    @tensoropt Tmp[f,i] := in4[f,y,x] * conj(in4)[i,y,x]
+    #Tmp = @ncon([in4, conj(in4)],[[-1,1,2],[-2,1,2]])
     # Seems like we need to replace tensoropt with NCON
     # NCON doesn't need preallocated space. tensoropt does!
 
     #R2 = contract('ewf,ijk,fk->eiwj', C, np.conjugate(C), Tmp)
 
-    #@tensoropt R2[e,i,w,j] = C[e,w,f]* conj(C)[i,j,k]* Tmp[f,k]
+    #@ltime @tensoropt R2[e,i,w,j] := in3[e,w,f]* conj(in3)[i,j,k]* Tmp[f,k]
     R2 = @ncon([in3, conj(in3), Tmp],[[-1,-3,1],[-2,-4,2],[1,2]])
     a = size(R2,1) * size(R2,2)
     b = size(R2,3) * size(R2,4)
@@ -112,7 +113,7 @@ function coarse_graining(in1, in2, in3, in4)
 
     #S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
     S1 = @ncon([in1, conj(in1)],[[-1,1,-3],[-2,1,-4]])
-    #@tensoropt S1[x,i,d,j] = A[x,y,d]* conj(A)[i,y,j]
+    #@ltime @tensoropt S1[x,i,d,j] := in1[x,y,d]* conj(in1)[i,y,j]
     a = size(S1,1) * size(S1,2)
     b = size(S1,3) * size(S1,4)
     S1 = reshape(S1,(a,b))
@@ -172,25 +173,19 @@ function coarse_graining(in1, in2, in3, in4)
     K = reshape(Kprime,(b,a,b,a))
 
     V, s1, VL = tensorsvd(K,[1,3],[2,4],Int(Dcut))
-    #@einsum Tmp1[c,q,i,x] = in4[c,q,p]* U[p,i,x]
-    #@einsum Tmp2[b,i,q,y] = in4[b,j,i]* V[q,j,y]
-    #@einsum Tmp3[c,x,b,y] = Tmp1[c,q,i,x]* Tmp2[b,i,q,y]
-
 
     Tmp1 = @ncon([in4, U],[[-1,-2,1],[1,-3,-4]])
-    """
-    in4tmp = reshape(in4,(size(in4,1)*size(in4,2),size(in4,3)))
-    Utmp = reshape(U,(size(U,1),size(U,2)*size(U,3)))
-    Tmp1tmp = in4tmp * Utmp
-    Tmp1 = reshape(Tmp1tmp,(size(in4,1),size(in4,2),size(U,2),size(U,3)))
-    """
-
     Tmp2 = @ncon([in4, V],[[-1,1,-2],[-3,1,-4]])
     Tmp3 = @ncon([Tmp1, Tmp2],[[-1,1,2,-2],[-3,2,1,-4]])
 
-    MC = @ncon([in2, in3],[[-1,1,-3],[-2,1,-4]])
+    #@tensor Tmp1[c,q,i,x] := in4[c,q,p]* U[p,i,x]
+    #@tensor Tmp2[b,i,q,y] := in4[b,j,i]* V[q,j,y]
+    #@tensor Tmp3[c,x,b,y] := Tmp1[c,q,i,x]* Tmp2[b,i,q,y]
 
+
+    MC = @ncon([in2, in3],[[-1,1,-3],[-2,1,-4]])
     Tmp = @ncon([MC, in3, Tmp3],[[-1,-2,1,2],[1,-5,3],[3,-4,2,-3]])
+    # *** Expensive!
     #@tensoropt Tmp[i,j,y,x,z] := MC[i,j,a,b]* in3[a,z,c]* Tmp3[c,x,b,y]
 
     G, st, out4 = tensorsvd(Tmp,[1,2,3],[4,5],Dcut)
@@ -199,16 +194,9 @@ function coarse_graining(in1, in2, in3, in4)
     Gtmp = reshape(G,(size(G,1)*size(G,2)*size(G,3),Int(size(G,4))))
     Gtmp = Gtmp * st
     G = reshape(Gtmp,(size(G,1),size(G,2),size(G,3),Int(size(st,2))))
-    #@einsum   G[i,j,k,l] = G[i,j,k,a] * st[a,l]  # Slower than above
-    # Was STUCK HERE on 22/12/20 since somehow NCON doesn't like this!~!
 
-    #@matmul Gtmp[(i,l,m),j] = sum(k) G[(i,l,m),k] * st[k,j]
-    #G = reshape(Gtmp,(size(G,1),size(G,2),size(G,3),Int(size(st,2))))
-
-    # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
     #Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
     Tmp1 = @ncon([conj(U), in1],[[1,-1,-2],[1,-3,-4]])
-
 
     Tmp2 = @ncon([conj(V), in1],[[-1,1,-2],[-3,1,-4]])
     #Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
@@ -220,10 +208,10 @@ function coarse_graining(in1, in2, in3, in4)
     DC = @ncon([in2, DC],[[1,-1,-5],[-2,-4,-3,1]])
 
     Tmp2 = @ncon([DC, G],[[-1,-2,-3,1,2],[1,2,-4,-5]])
-    #Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
+    #@tensoropt Tmp2[i,j,k,m,n] := DC[i,j,k,a,b]* G[a,b,m,n]
+    # *** Expensive!
 
     out1, st2, MCprime = tensorsvd(Tmp2,[1,2],[3,4,5],Dcut)
-    #@einsum  MCprime[i,k,l,m] = st2[i,j] * MCprime[j,k,l,m]
     MCprimetmp = reshape(MCprime,(size(MCprime,1),size(MCprime,2)*size(MCprime,3)*size(MCprime,4)))
     MCprimetmp = st2 * MCprimetmp
     MCprime = reshape(MCprimetmp,(size(st2,1),size(MCprime,2),size(MCprime,3),size(MCprime,4)))
@@ -233,14 +221,11 @@ function coarse_graining(in1, in2, in3, in4)
 
     # Split singular piece here!
     sing = st3^0.500 #TODO
-    # Can't take square root of matrix. May be linked to NCON error above
-
     out2tmp = reshape(out2,(size(out2,1)*size(out2,2),size(out2,3)))
     out2tmp = out2tmp * sing
     out2 = reshape(out2tmp,(size(out2,1),size(out2,2),size(sing,2)))
 
     out3tmp = reshape(out3,(size(out3,1),size(out3,2)*size(out3,3)))
-
     out3tmp = sing * out3tmp
     out3 = reshape(out3tmp,(size(sing,1),size(out3,2),size(out3,3)))
 
@@ -269,7 +254,6 @@ for p = 1:Nsteps
         #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
         #T = @ncon([A, B, C, D],[[-1,-3,1],[1,-5,2],[2,-6,3],[3,-4,-2]])
         #norm = maximum(T)
-        #println("Max is ", norm)
 
         norm = maximum(A)*maximum(B)*maximum(C)*maximum(D)
         div = sqrt(sqrt(norm))
@@ -283,22 +267,12 @@ for p = 1:Nsteps
         if iter == Niter
 
             Tmp1 = @ncon([A, conj(A)],[[1,2,-1],[1,2,-2]])
-            #Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
-
             Tmp2 = @ncon([D, conj(D)],[[-1,1,2],[-2,1,2]])
-            #Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
-
             Tmp3 = @ncon([B, conj(B)],[[-1,1,-2],[-3,1,-4]])
-            #Tmp3 = contract('ahb,jhk->abjk',B,np.conjugate(B))
-
             Tmp4 = @ncon([Tmp1, Tmp3],[[1,2],[1,-1,2,-2]])
-            #Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
-
             Tmp5 = @ncon([C, conj(C)],[[-1,1,-2],[-3,1,-4]])
-            #Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
 
             Z = .0
-            #Z = @ncon([Tmp5, Tmp4, Tmp2],[[1,2,3,4],[1,3],[2,4]])
             @tensor  Z = Tmp5[b,c,k,m] * Tmp4[b,k] * Tmp2[c,m]
             # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
             Free = -(temp[p])*(CU + (log(Z)/(2.0^Niter)))

@@ -58,8 +58,6 @@ def tensorsvd(input,left,right,D):
     T = np.reshape(T,(xsize,ysize))
 
     U, s, V = sp.linalg.svd(T, full_matrices=False) 
-    # Interchange between RSVD and usual SVD 
-    #U, s, V = randomized_svd(T, n_components=D, n_iter=4,random_state=None)
     
     if D < len(s):
         s = np.diag(s[:D])
@@ -89,15 +87,13 @@ def Z3d(beta, h, Dn):
         p31 = np.asarray(out)
         print ("Min. element of T", np.min(out))
         p31[p31 < min_cut] = 0.0
-        # Note that p31 is very symmetric. Same non-zero along all axes
         index_l = np.nonzero(p31)[0]
         index_r = np.nonzero(p31)[1]
         index_u = np.nonzero(p31)[2]
         index_d = np.nonzero(p31)[3]
         index_f = np.nonzero(p31)[4]
         index_b = np.nonzero(p31)[5]
-        # Get rid of those elements smaller than min_cut and only loop over the ones
-        # left after this truncation. 
+
         length = len(index_l)
         frac = ((Dcut**6)-length)*100/(Dcut**6)
         if frac == 0.00:
@@ -141,7 +137,7 @@ def Z3d(beta, h, Dn):
 
     Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
     sing = sqrtm(stmp2)
-    D = contract('kp,pij->kij', sing, Tmp4)  # Split singular here...
+    D = contract('kp,pij->kij', sing, Tmp4) 
 
     Tmp3 = contract('pqrs,sj->pqrj', Tmp3, sing)
 
@@ -189,8 +185,9 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-    #Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
-    Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
+    dum1 = S2 @ R2mat 
+    Kprime = S1 @ dum1 @ R3mat.T @ S1.T
+    #Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
 
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
@@ -208,7 +205,9 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     R3mat = np.reshape(R3,(a,b))
 
 
-    Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
+    #Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
+    Kprime = S1 @ dum1 @ R3mat.T @ S1.T # Use Tmp from above
+
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))
@@ -253,7 +252,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.15, 0.75, 0.05).tolist()
+    beta = np.arange(0.55, 0.6, 0.1).tolist()
     Nsteps = int(np.shape(beta)[0])
     f = np.zeros(Nsteps)
 
@@ -266,10 +265,8 @@ if __name__ == "__main__":
 
             A, B, C, D = coarse_graining(A,B,C,D)  
             
-            #print ("Finished", iter+1, "of", Niter , "steps of CG")
             #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             #norm = np.max(T)
-            #div = np.sqrt(np.sqrt(norm))
 
             # Alt way to normalize!
             norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
