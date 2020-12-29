@@ -109,7 +109,7 @@ def Z3d(beta, h, Dn):
             d = index_d[iter]
             f = index_f[iter]
             b = index_b[iter]
-            index = l+u+f-r-d-b
+            index = l-r+u-d+f-b
             out[l][r][u][d][f][b] *= sp.special.iv(index, betah)
 
 
@@ -122,17 +122,17 @@ def Z3d(beta, h, Dn):
                         for f in range (-Dn,Dn+1):
                             for b in range (-Dn,Dn+1):
 
-                                index = l+u+f-r-d-b
+                                index = l-r+u-d+f-b
                                 out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
 
 
-
-    out = out.transpose(0,5,3,2,4,1)
+    out = out.transpose(0,5,3,2,4,1)  
     # lrudfb to lbdufr
+    #f.write ("AM ", psutil.virtual_memory().available * 100 / psutil.virtual_memory().total)
 
     Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
     sing = sqrtm(stmp1)
-    A = contract('ijk,kp->ijp', Tmp1, sing)
+    A = contract('ijk,kp->ijp', Tmp1, sing)  
     Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
 
     Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
@@ -149,10 +149,9 @@ def Z3d(beta, h, Dn):
     T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
     diff = LA.norm(T) - LA.norm(out)
 
-    if abs(diff) > 1e-14:
+    if abs(diff) > 1e-14:  
         print ("Error: Triads not accurate", diff)
         print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
-        sys.exit(1) 
 
     return A, B, C, D
 
@@ -171,6 +170,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     S2 = np.reshape(S2,(a,b))
     Tmp = contract('fyx,iyx->fi', D, np.conjugate(D))
     R2 = contract('ewf,ijk,fk->eiwj', C, np.conjugate(C), Tmp)
+    del Tmp
     a = np.shape(R2)[0] * np.shape(R2)[1]
     b = np.shape(R2)[2] * np.shape(R2)[3]
     R2mat = np.reshape(R2,(a,b))
@@ -207,6 +207,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
     #Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
     Kprime = S1 @ dum1 @ R3mat.T @ S1.T # Use Tmp from above
+    del dum1 
 
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
@@ -217,10 +218,12 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     del K
     del Kprime
     del S1 
+    del R3 
 
     Tmp1 = contract('cqp,pix -> cqix',D,U)
     Tmp2 = contract('bji,qjy -> biqy',D,V)
     Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
+    del Tmp1, Tmp2
     
     MC = contract('ijk,pjr->ipkr', B, C)
     Tmp = contract('ijab,azc,cxby->ijyxz', MC, C, Tmp3)
@@ -228,17 +231,27 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
     G = contract('ijka,al->ijkl', G, st)  
 
+    del Tmp, Tmp3
+
     # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
     Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
     Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
     DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
     DC = contract('dzb,xayd->zxyab', B, DC)
+
+    del Tmp2
+    del Tmp1
  
-    Tmp2 = contract('ijkab,abmn->ijkmn', DC, G)
-    A, st2, MCprime = tensorsvd(Tmp2,[0,1],[2,3,4],Dcut) 
+    Tmp1 = contract('ijkab,abmn->ijkmn', DC, G)
+    A, st2, MCprime = tensorsvd(Tmp1,[0,1],[2,3,4],Dcut) 
+
+    del Tmp1
 
     MCprime = contract('ij,jklm->iklm', st2, MCprime)
     B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
+
+    del MCprime
+
 
     # Split singular piece here!
     sing = sqrtm(st3) 
@@ -251,6 +264,7 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 if __name__ == "__main__":
 
+    #f=open("output_3d_XY_testing.txt", "a+")
 
     beta = np.arange(0.55, 0.6, 0.1).tolist()
     Nsteps = int(np.shape(beta)[0])
@@ -264,6 +278,7 @@ if __name__ == "__main__":
         for iter in range (Niter):
 
             A, B, C, D = coarse_graining(A,B,C,D)  
+            #f.write("One CG step")
             
             #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             #norm = np.max(T)
@@ -284,6 +299,7 @@ if __name__ == "__main__":
                 Tmp2 = contract('cge,mge->cm',D,np.conjugate(D))
                 Tmp3 = contract('ahb,jhk->abjk',B,np.conjugate(B))
                 Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
+                del Tmp1, Tmp3
                 Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
                 Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
                 # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
@@ -291,7 +307,11 @@ if __name__ == "__main__":
                 Z_par = CU + (np.log(Z)/(2.0**Niter))
                 f[p] = -Z_par
                 Free = f[p]*(1.0/beta[p])
-                print (round(beta[p],5),round(f[p],16),round(Free,16) )
+                print (round(beta[p],5),round(f[p],16),round(Free,16))
+                #f.write(round(beta[p],5),round(f[p],16))
+
+
+    #f.close()
 
     # Make plots if needed! 
     if Nsteps > 3: 
