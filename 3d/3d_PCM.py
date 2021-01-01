@@ -13,7 +13,6 @@ from matplotlib import pyplot as plt
 import time
 import datetime
 from opt_einsum import contract
-from ncon import ncon 
                      
 startTime = time.time()
 print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
@@ -234,8 +233,6 @@ def makeA(rep, beta):
     for rp2, rp1 in itertools.product(rep, rep):
         for R in range(abs(rp2-rp1), abs(rp1+rp2)+1, 2):
 
-            #print ("Reps for A,", rp2/2.0, rp1/2.0, R/2.0)
-
             m3 = []
             n3 = [] 
             m1 = [] 
@@ -282,9 +279,6 @@ def makeB(rep, beta):
 
     for R, rp3 in itertools.product(Rrep, rep):
         for Rprime in range(abs(R-rp3), abs(R+rp3)+1, 2):
-
-
-            #print ("Reps for B,", R/2.0, rp3/2.0, Rprime/2.0)
 
             M = [] 
             N = []
@@ -337,8 +331,6 @@ def makeC(rep, beta):
     for Rdprime, rm3 in itertools.product(Rdprimerep, rep):
         for Rprime in range(abs(Rdprime-rm3), abs(Rdprime+rm3)+1, 2):  
 
-            #print ("Reps for C,", Rdprime/2.0, rm3/2.0, Rprime/2.0)
-
 
             Mprime = [] 
             Nprime = []
@@ -380,8 +372,6 @@ def makeD(rep, beta):
     for rm1, rm2 in itertools.product(rep, rep):
         for Rdprime in range(abs(rm1-rm2), abs(rm1+rm2)+1, 2):
 
-            #print ("Reps for D,", rm1/2.0, rm2/2.0, Rdprime/2.0)
-
             m2 = []
             n2 = [] 
             m4 = [] 
@@ -419,7 +409,7 @@ def makeD(rep, beta):
 if __name__ == "__main__":
 
 
-    beta = np.arange(1.15, 1.2, 0.05).tolist()
+    beta = np.arange(0.60, 0.70, 0.05).tolist()
     Nsteps = int(np.shape(beta)[0])
     data = np.zeros(Nsteps)
 
@@ -487,7 +477,6 @@ if __name__ == "__main__":
         dfdx = np.gradient(data, dx) 
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
-        f = plt.figure()
         fig, ax1 = plt.subplots()
         color = 'tab:red'
         ax1.set_xlabel(r'$\beta$',fontsize=13)

@@ -122,12 +122,10 @@ def Z3d(beta, h, Dn):
                         for f in range (-Dn,Dn+1):
                             for b in range (-Dn,Dn+1):
 
-                                index = l-r+u-d+f-b
-                                out[l+Dn][r+Dn][u+Dn][d+Dn][f+Dn][b+Dn] *= sp.special.iv(index, betah)
+                                index = l-b-d+u+f-r
+                                out[l+Dn][b+Dn][d+Dn][u+Dn][f+Dn][r+Dn] *= sp.special.iv(index, betah)
 
 
-    out = out.transpose(0,5,3,2,4,1)  
-    # lrudfb to lbdufr
     #f.write ("AM ", psutil.virtual_memory().available * 100 / psutil.virtual_memory().total)
 
     Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
@@ -264,7 +262,6 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
 if __name__ == "__main__":
 
-    #f=open("output_3d_XY_testing.txt", "a+")
 
     beta = np.arange(0.55, 0.6, 0.1).tolist()
     Nsteps = int(np.shape(beta)[0])
@@ -277,12 +274,9 @@ if __name__ == "__main__":
 
         for iter in range (Niter):
 
-            A, B, C, D = coarse_graining(A,B,C,D)  
-            #f.write("One CG step")
-            
+            A, B, C, D = coarse_graining(A,B,C,D)              
             #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             #norm = np.max(T)
-
             # Alt way to normalize!
             norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
             div = np.sqrt(np.sqrt(norm))
@@ -307,11 +301,7 @@ if __name__ == "__main__":
                 Z_par = CU + (np.log(Z)/(2.0**Niter))
                 f[p] = -Z_par
                 Free = f[p]*(1.0/beta[p])
-                print (round(beta[p],5),round(f[p],16),round(Free,16))
-                #f.write(round(beta[p],5),round(f[p],16))
-
-
-    #f.close()
+                print (round(beta[p],5),round(f[p],16))
 
     # Make plots if needed! 
     if Nsteps > 3: 
@@ -325,27 +315,20 @@ if __name__ == "__main__":
         out1 = [] 
         for i in range(0, len(d2fdx2)):
             out1.append(d2fdx2[i])
-
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
-
         data = out   
-
-        f = plt.figure()
         fig, ax1 = plt.subplots()
         color = 'tab:red'
         ax1.set_xlabel('T',fontsize=13)
         ax1.set_ylabel('Av. Action', color=color,fontsize=13)
-        #ax1.plot(beta, data, '.r-')
         ax1.plot(beta, data, 'o', color='red');
         ax1.tick_params(axis='y', labelcolor=color)
         plt.title(r"3d Classical model using Triad TRG",fontsize=16, color='black')
         fig.tight_layout()
-
         outplot = '3dXY' + '_Niter'
         outplot += str(Niter) + '_chi' + str(Dcut)
         outplot += '.pdf'   
-
         plt.savefig(outplot)
 
 

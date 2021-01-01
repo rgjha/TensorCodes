@@ -1,5 +1,5 @@
 python 3d_PCM.py 15 26 0.5
-STARTED:  2020-12-07 18:15:56
-f/V = -0.4023 @ beta = 0.6 with D, Niter -> 26 15
-f/V = -0.4318 @ beta = 0.65 with D, Niter -> 26 15
-COMPLETED:  2020-12-07 18:24:57
+STARTED:  2020-12-31 20:15:18
+f/V = -0.1268 @ beta = 0.6 with D, Niter -> 26 15
+f/V = -0.139 @ beta = 0.65 with D, Niter -> 26 15
+COMPLETED:  2020-12-31 20:26:01
