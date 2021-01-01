@@ -20,6 +20,10 @@ For example: to execute `A_ijkl` times `B_ijpr` one can use different options as
 
 ```julia
 using TensorOperations, Einsum
+
+A = randn(5,5,5,5)
+B = randn(5,5,5,5)
+
 @tensor C[k,l,p,r] := A[i,j,k,l] *  B[i,j,p,r]
 @einsum C[k,l,p,r] := A[i,j,k,l] *  B[i,j,p,r]
 C := @ncon([A, B],[[1,2,-1,-2],[1,2,-3,-4]])
@@ -49,12 +53,31 @@ from opt_einsum import contract
 from ncon import ncon 
 import numpy as np 
 
+A = np.random.rand(5,5,5,5)
+B = np.random.rand(5,5,5,5)
+
 C = contract('ijkl,ijpr->klpr', A, B)
 C = np.einsum('ijkl,ijpr->klpr', A, B)
 C = ncon([A, B],[[1,2,-1,-2],[1,2,-3,-4]])
 
 # More complicated contraction example is one given below:
+
+input = np.random.rand(5,5,5,5,5,5)
+Ux = Uy = np.random.rand(5,5,5)
+
 out = ncon([Ux,Uy,input,input,Uy,Ux],[[3,4,-2],[1,2,-1],[1,3,5,7,10,-6],[2,4,6,8,-5,10],[5,6,-3],[7,8,-4]])
+```
+
+The single most crucial and expensive step in these tensor computations is the `SVD` (singular value decomposition). 
+For a matrix of size `m` x `n` with `m > n`, the cost scales like O(mn^2). Depending on how many
+singular values (arranged in descending order) we keep, the cost can vary. In 2009, a new 
+method called 'randomized SVD' was proposed by Halko et al. [https://arxiv.org/abs/0909.4061]. 
+This has already been useful for machine learning purposes and the implementation has been done 
+in scikit-learn [https://scikit-learn.org/stable/]. Use this with caution! 
+
+```python 
+from sklearn.utils.extmath import randomized_svd
+U, s, V = randomized_svd(T, n_components=D, n_iter=5,random_state=5)
 ```
 
 
