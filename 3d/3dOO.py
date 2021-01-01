@@ -39,6 +39,13 @@ Dn = int(Dcut/2.0)
 def dagger(a):
     return np.conjugate(np.transpose(a))
 
+def matprint(mat, fmt="g"):
+    col_maxes = [max([len(("{:"+fmt+"}").format(x)) for x in col]) for col in mat.T]
+    for x in mat:
+        for i, y in enumerate(x):
+            print(("{:"+str(col_maxes[i])+fmt+"}").format(y), end="  ")
+        print("")
+
 
 def tensorsvd(input,left,right,D):
     '''Reshape an input tensor into a rectangular matrix with first index corresponding
@@ -126,12 +133,26 @@ def Z3d(beta, h, Dn):
                                 out[l+Dn][b+Dn][d+Dn][u+Dn][f+Dn][r+Dn] *= sp.special.iv(index, betah)
 
 
-    #f.write ("AM ", psutil.virtual_memory().available * 100 / psutil.virtual_memory().total)
+    '''
+    out_tmp1 = np.reshape(out,(Dcut**2,Dcut**4))
+    out_tmp2 = np.dot(out_tmp1,out_tmp1.T) 
+    Tmp1, stmp1, dum1 = tensorsvd(out_tmp1,[0],[1],Dcut_triad) 
+    sing = sqrtm(stmp1)
+    A = contract('ij,jp->ip', Tmp1, sing) 
+    #matprint(stmp1)  
+    A = np.reshape(A,(Dcut, Dcut, Dcut_triad))
+    out_tmp1 = np.reshape(out,(Dcut**4,Dcut**2))
+    out_tmp2 = np.dot(out_tmp1,out_tmp1.T) 
+    Tmp2, stmp1, dum1 = tensorsvd(out_tmp2,[0],[1],Dcut_triad) 
+    Tmp2 = np.reshape(Tmp2,(Dcut_triad, Dcut, Dcut, Dcut, Dcut))
+    '''
 
+    #'''
     Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
     sing = sqrtm(stmp1)
     A = contract('ijk,kp->ijp', Tmp1, sing)  
     Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
+    #'''
 
     Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
     sing = sqrtm(stmp2)
