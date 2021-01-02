@@ -80,5 +80,25 @@ from sklearn.utils.extmath import randomized_svd
 U, s, V = randomized_svd(T, n_components=D, n_iter=5,random_state=5)
 ```
 
+There is also additional option of using PRIMME [https://pypi.org/project/primme/] or even SymPy's `svds` as shown below
+where `D` is the number of singular values in escending order you want to keep. 
+
+```python 
+from scipy.sparse.linalg import svds, eigs
+import primme 
+
+U, s, V = svds(T, k=D , which = 'LM')   # Using SciPy
+U, s, V = primme.svds(T, D, which='LM') # Using PRIMME
+s = np.diag(s)
+
+# LM is for keeping large eigenvalues 
+
+# Note that as compared to SciPy's command: U, s, V = sp.linalg.svd(T, full_matrices=False) 
+# we have to create a diagonal matrix out of 's' as well if using PRIMME/svds
+
+```
+
+
+
 
 Please send questions/suggestions about this repository to rgjha1989@gmail.com
