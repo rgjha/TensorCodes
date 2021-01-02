@@ -410,6 +410,7 @@ if __name__ == "__main__":
 
 
     beta = np.arange(0.60, 0.70, 0.05).tolist()
+    beta = np.arange(1.15, 1.2, 0.1).tolist()
     Nsteps = int(np.shape(beta)[0])
     data = np.zeros(Nsteps)
 
@@ -419,6 +420,13 @@ if __name__ == "__main__":
         B = makeB(rep, beta[p])
         D = makeD(rep, beta[p])
         C = makeC(rep, beta[p])
+
+        '''
+        print ("Norm of A", round(LA.norm(A),16))
+        print ("Norm of B", round(LA.norm(B),16))
+        print ("Norm of C", round(LA.norm(C),16))
+        print ("Norm of D", round(LA.norm(D),16))  
+        '''
         
         CU = 0.0 
 
@@ -437,13 +445,6 @@ if __name__ == "__main__":
         for iter in range (Niter):
 
             A, B, C, D = coarse_graining(A,B,C,D)    
-            '''
-            print ("A", round(LA.norm(A),10))
-            print ("B", round(LA.norm(B),10))
-            print ("C", round(LA.norm(C),10))
-            print ("D", round(LA.norm(D),10))  
-            '''
-
             T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             norm = np.max(T)
             div = np.sqrt(np.sqrt(norm))

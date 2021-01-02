@@ -5,6 +5,7 @@ import numpy as np
 import scipy as sp  
 from scipy import special
 from scipy.linalg import sqrtm
+from scipy.sparse.linalg import svds, eigs
 from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
@@ -12,6 +13,9 @@ from matplotlib import pyplot as plt
 import time
 import datetime
 from opt_einsum import contract
+from sklearn.decomposition import TruncatedSVD
+from sklearn.utils.extmath import randomized_svd
+import primme
 
 
 startTime = time.time()
@@ -64,8 +68,14 @@ def tensorsvd(input,left,right,D):
     ysize = np.prod(right_index_list)
     T = np.reshape(T,(xsize,ysize))
 
+    U, s, V = svds(T, k=D , which = 'LM')   # Using SciPy
+    #U, s, V = primme.svds(T, D, which='LM') # Using PRIMME
+    # LM is for keeping large eigenvalues
+    s = np.diag(s)
+    #U, s, V = randomized_svd(T, n_components=D, n_iter=5,random_state=5) # Using scikit-learn 
+
+    '''
     U, s, V = sp.linalg.svd(T, full_matrices=False) 
-    
     if D < len(s):
         s = np.diag(s[:D])
         U = U[:,:D]
@@ -73,6 +83,7 @@ def tensorsvd(input,left,right,D):
     else:
         D = len(s)
         s = np.diag(s)
+    '''
 
     U = np.reshape(U,left_index_list+[D])
     V = np.reshape(V,[D]+right_index_list)
@@ -147,12 +158,10 @@ def Z3d(beta, h, Dn):
     Tmp2 = np.reshape(Tmp2,(Dcut_triad, Dcut, Dcut, Dcut, Dcut))
     '''
 
-    #'''
     Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
     sing = sqrtm(stmp1)
     A = contract('ijk,kp->ijp', Tmp1, sing)  
     Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
-    #'''
 
     Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
     sing = sqrtm(stmp2)
@@ -170,7 +179,7 @@ def Z3d(beta, h, Dn):
 
     if abs(diff) > 1e-14:  
         print ("Error: Triads not accurate", diff)
-        print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+        print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
     return A, B, C, D
 
