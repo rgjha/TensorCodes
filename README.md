@@ -1,10 +1,9 @@
 # TensorCodes
 This repository contains a random collection of codes written in Python & Julia (some are work in progress) to study several
 observables in models using HOTRG/TNR/Triad algorithms. For index contractions, mostly NCON [introduced in
-https://arxiv.org/abs/1402.0939] is used
-since it is faster than "einsum" or "tensordot" in my tests. Recently, I came across "contract"
-as introduced first in https://doi.org/10.21105/joss.00753. The different algorithms employed in these codes 
-were introduced in the following papers: 
+https://arxiv.org/abs/1402.0939] is used since it is faster than "einsum" or "tensordot" in my tests. Recently, 
+I came across "contract" as introduced first in https://doi.org/10.21105/joss.00753. The different algorithms employed 
+in these codes were introduced in the following papers: 
 
 HOTRG --> https://arxiv.org/abs/1201.1144  
 
@@ -14,7 +13,8 @@ Triad --> https://arxiv.org/abs/1912.02414
 
 Example of how index contraction works (in Julia) where I have been playing around with different options: 1) @tensor [https://github.com/Jutho/TensorOperations.jl] 2) @einsum [https://github.com/ahwillia/Einsum.jl] 
 
-In particular, in TensorOperations, there is also added feature for NCON [https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Dynamical-tensor-network-contractions-with-ncon-and-@ncon] 
+In particular, in TensorOperations, there is also added feature for NCON 
+[https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Dynamical-tensor-network-contractions-with-ncon-and-@ncon] 
 
 For example: to execute `A_ijkl` times `B_ijpr` one can use different options as:
 
@@ -29,8 +29,8 @@ B = randn(5,5,5,5)
 C := @ncon([A, B],[[1,2,-1,-2],[1,2,-3,-4]])
 ```
 
-To decide which one has better timings and memory allocations, it is useful to time the single-line commands in Julia by defining a macro 
-and then calling as below:
+To decide which one has better timings and memory allocations, it is useful to time the single-line commands in Julia 
+by defining a macro and then calling as below:
 
 ```julia
 using TensorOperations, Einsum
@@ -88,13 +88,15 @@ from scipy.sparse.linalg import svds, eigs
 import primme 
 
 U, s, V = svds(T, k=D , which = 'LM')   # Using SciPy
-U, s, V = primme.svds(T, D, which='LM') # Using PRIMME
+U, s, V = primme.svds(T, D, tol=1e-8, which='LM') # Using PRIMME
 s = np.diag(s)
 
 # LM is for keeping large eigenvalues 
 
 # Note that as compared to SciPy's command: U, s, V = sp.linalg.svd(T, full_matrices=False) 
 # we have to create a diagonal matrix out of 's' as well if using PRIMME/svds
+# It is good idea to provide tolerance to PRIMME's SVD. If you don't then 
+# tolerance is 10^4 times the machine precision [approx~ 10^-12]. 
 
 ```
 
