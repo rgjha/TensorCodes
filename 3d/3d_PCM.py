@@ -15,7 +15,7 @@ import datetime
 from opt_einsum import contract
                      
 startTime = time.time()
-print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+print ("STARTED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S")) 
 
 
 if len(sys.argv) < 4:
@@ -489,6 +489,6 @@ if __name__ == "__main__":
         fig.tight_layout()
         plt.show()
 
-    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+    print ("COMPLETED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S")) 
     
 

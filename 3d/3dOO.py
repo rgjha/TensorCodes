@@ -10,6 +10,7 @@ from numpy import linalg as LA
 from numpy.linalg import matrix_power
 from numpy import ndarray
 from matplotlib import pyplot as plt
+from itertools import product
 import time
 import datetime
 from opt_einsum import contract
@@ -19,7 +20,7 @@ import primme
 
 
 startTime = time.time()
-print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+print ("STARTED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S"))  
 
 
 if len(sys.argv) < 4:
@@ -68,13 +69,13 @@ def tensorsvd(input,left,right,D):
     ysize = np.prod(right_index_list)
     T = np.reshape(T,(xsize,ysize))
 
-    U, s, V = svds(T, k=D , which = 'LM')   # Using SciPy
+    #U, s, V = svds(T, k=D , which = 'LM')   # Using SciPy
     #U, s, V = primme.svds(T, D, which='LM') # Using PRIMME
     # LM is for keeping large eigenvalues
-    s = np.diag(s)
+    #s = np.diag(s)
     #U, s, V = randomized_svd(T, n_components=D, n_iter=5,random_state=5) # Using scikit-learn 
 
-    '''
+    #'''
     U, s, V = sp.linalg.svd(T, full_matrices=False) 
     if D < len(s):
         s = np.diag(s[:D])
@@ -83,7 +84,7 @@ def tensorsvd(input,left,right,D):
     else:
         D = len(s)
         s = np.diag(s)
-    '''
+    #'''
 
     U = np.reshape(U,left_index_list+[D])
     V = np.reshape(V,[D]+right_index_list)
@@ -158,9 +159,10 @@ def Z3d(beta, h, Dn):
     Tmp2 = np.reshape(Tmp2,(Dcut_triad, Dcut, Dcut, Dcut, Dcut))
     '''
 
-    Tmp1, stmp1, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
-    sing = sqrtm(stmp1)
-    A = contract('ijk,kp->ijp', Tmp1, sing)  
+    Tmp1, sing, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
+    sing = sqrtm(sing)
+    A = contract('ijk,kp->ijp', Tmp1, sing) 
+    #A = Tmp1  
     Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
 
     Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
@@ -178,8 +180,30 @@ def Z3d(beta, h, Dn):
     diff = LA.norm(T) - LA.norm(out)
 
     if abs(diff) > 1e-14:  
-        print ("Error: Triads not accurate", diff)
+        print ("WARNING: Triads not accurate", diff)
         print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+
+
+    S = np.zeros((Dcut, Dcut, Dcut, Dcut*3)) 
+
+    for i,j,k,l in product(range(-Dn, Dn+1), range(-Dn, Dn+1), range(-Dn, Dn+1), range(-3*Dn, (3*Dn)+1)):
+        if i+j+k-l == 0:
+            S[i+Dn,j+Dn,k+Dn,l+3*Dn] = np.sqrt(sp.special.iv(i, beta) * sp.special.iv(j, beta) * sp.special.iv(k, beta))
+
+
+
+    A1 = np.zeros((Dcut, Dcut, Dcut*2)) 
+
+    for i,j,k in product(range(-Dn, Dn+1), range(-Dn, Dn+1), range(-2*Dn, (2*Dn)+1)):
+        if i+j-k == 0:
+            A1[i+Dn,j+Dn,k+2*Dn] = np.sqrt(sp.special.iv(i, beta) * sp.special.iv(j, beta))
+
+    print ("Norm diff in As", LA.norm(A1) - LA.norm(A))
+
+    Talt = contract('lbdp,ufrp->lbdufr', S, S)    # Correct!  
+    print ("Norm diff in Ts", LA.norm(Talt) - LA.norm(out))
+
+    sys.exit(1)
 
     return A, B, C, D
 
@@ -362,5 +386,5 @@ if __name__ == "__main__":
         plt.savefig(outplot)
 
 
-    print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+    print ("COMPLETED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S"))  
     
