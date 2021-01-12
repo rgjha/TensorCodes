@@ -23,7 +23,7 @@ import datetime
 from packages import ncon
 
 startTime = time.time()
-#print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+print ("STARTED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S")) 
 
 if len(sys.argv) < 2:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>")
@@ -158,9 +158,6 @@ def final_step(input,impure=False):
 
 if __name__ == "__main__":
     
-
-
-
     T = Z3d_Ising()   # Get the initial tensor for 3d Ising 
     #T = Z3d_U1()  # Get the initial tensor for U(1) 
     norm = np.max(T)
@@ -169,7 +166,6 @@ if __name__ == "__main__":
     Z = ncon([M1, M1],[[1,2,3,4,5,6,7,8], [2,1,4,3,6,5,8,7]])
     N = 1
     C = np.log(norm)
-    #f = -Temp*(np.log(Z)+6*C)/(6)
     f = -(np.log(Z)+6*C)/(6)
 
 
@@ -178,23 +174,17 @@ if __name__ == "__main__":
         #print ("Coarse graining, step ", i+1)
         T, TI, norm = coarse_graining(T, False)
         C = np.log(norm)+6*C 
-        N *= 6  # 3d has six open legs 
+        N *= 6
         f = -Temp*(np.log(Z)+6*C)/(6*N)
-        #f = -(np.log(Z)+6*C)/(6*N)
-        #print ("Free energy ", f)
 
 
         if i == Niter-1:
 
             Z = final_step(T, False)
             f = -Temp*(np.log(Z)+6*C)/(6*N)
-            #f = -(np.log(Z)+6*C)/(6*N)
 
-
-    #print ("Free energy is ", f, " at T= ", Temp)
     print (Temp, f)
-    #print ("Free energy is ", f*BETAAA, " at beta= ", BETAAA)
-    #print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    print ("COMPLETED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S")) 
 
 
             
