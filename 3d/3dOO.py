@@ -24,24 +24,21 @@ startTime = time.time()
 print ("STARTED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S"))  
 
 
-if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, min_cut")
+if len(sys.argv) < 8:
+  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, Dn, start, end, incr, h")
   sys.exit(1)
 
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
-h = float(sys.argv[3])
+Dn = int(sys.argv[3])
+start = float(sys.argv[4])
+end = float(sys.argv[5])
+incr = float(sys.argv[6])
+h = float(sys.argv[7])
 
 
-if Dcut%2 == 0:
-    print ("Dcut must be odd for now")
-    sys.exit(1) 
-
-
-Dn = int(Dcut/2.0)
 L = np.zeros([2*Dn + 1])
 Dcut_triad = int(Dcut*2.) 
-min_cut = 0.
 
 
 def dagger(a):
@@ -99,14 +96,13 @@ def Z3d(beta, h, Dn):
 
     if h != 0: 
 
-        betah = beta*h 
         for i in range (-Dn,Dn+1):
             L[i+Dn] = np.sqrt(iv(i, beta))
         out = contract("i,j,k,l,m,n->ijklmn", L, L, L, L, L, L)
 
         for l,r,u,d,f,b in product(range(-Dn, Dn+1), repeat=6):
             index = l-b-d+u+f-r
-            out[l+Dn][b+Dn][d+Dn][u+Dn][f+Dn][r+Dn] *= iv(index, betah)
+            out[l+Dn,b+Dn,d+Dn,u+Dn,f+Dn,r+Dn] *= iv(index, beta*h)
 
     
         Tmp1, sing, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
@@ -134,11 +130,11 @@ def Z3d(beta, h, Dn):
 
     else:
 
-        out = np.zeros((Dcut, Dcut, Dcut, Dcut, Dcut, Dcut)) 
+        out = np.zeros(np.repeat(Dcut, 6))
         for l,r,u,d,f,b in product(range(-Dn, Dn+1), repeat=6):
             index = l-b-d+u+f-r
             if index == 0:
-                out[l+Dn][b+Dn][d+Dn][u+Dn][f+Dn][r+Dn] = np.sqrt(iv(l, beta)*iv(r, beta)*iv(u, beta)*iv(d, beta)*iv(f, beta)*iv(b, beta))
+                out[l+Dn,b+Dn,d+Dn,u+Dn,f+Dn,r+Dn] = np.sqrt(iv(l, beta)*iv(r, beta)*iv(u, beta)*iv(d, beta)*iv(f, beta)*iv(b, beta))
 
 
         A = np.zeros((Dcut, Dcut, Dcut*2)) 
@@ -214,7 +210,12 @@ def Z3d_mag(beta, h, Dn):
     return Aimp, Bimp, Cimp, Dimp
 
 
-def coarse_graining(in1, in2, in3, in4, in5, in6, in7, in8):
+def coarse_graining(*args):
+
+    if h == 0:
+        [in1,in2,in3,in4] = [args[0],args[1],args[2],args[3]]
+    else:
+        [in1,in2,in3,in4,in5,in6, in7, in8] = [args[0],args[1],args[2],args[3],args[4],args[5],args[6],args[7]]
 
 
     S2 = contract('dze,izj->diej', in2, np.conjugate(in2))
@@ -287,15 +288,13 @@ def coarse_graining(in1, in2, in3, in4, in5, in6, in7, in8):
 
     if h != 0: 
 
-        
-
         Tmp1 = contract('cqp,pix -> cqix',in8,U)
         Tmp2 = contract('bji,qjy -> biqy',in4,V)
         Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
 
-        MC = contract('ijk,pjr->ipkr', in6, in3)  # DONE 
+        MC = contract('ijk,pjr->ipkr', in6, in3)  # MC made!
 
-        Tmp = contract('ijab,azc,cxby->ijyxz', MC, in7, Tmp3) # UC here 
+        Tmp = contract('ijab,azc,cxby->ijyxz', MC, in7, Tmp3) # UC made! 
 
         G, st, out8 = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
         G = contract('ijka,al->ijkl', G, st)  
@@ -303,7 +302,7 @@ def coarse_graining(in1, in2, in3, in4, in5, in6, in7, in8):
         Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), in5)
         Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), in1)
         DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
-        DC = contract('dzb,xayd->zxyab', in2, DC)  # DONE 
+        DC = contract('dzb,xayd->zxyab', in2, DC)  # DC made! 
         Tmp1 = contract('ijkab,abmn->ijkmn', DC, G)
         out5, st2, MCprime = tensorsvd(Tmp1,[0,1],[2,3,4],Dcut) 
         MCprime = contract('ij,jklm->iklm', st2, MCprime)
@@ -323,29 +322,26 @@ def coarse_graining(in1, in2, in3, in4, in5, in6, in7, in8):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.4, 0.6, 0.01).tolist()
+    beta = np.arange(start, end, incr).tolist()
     Nsteps = int(np.shape(beta)[0])
     f = np.zeros(Nsteps)
     mag = np.zeros(Nsteps)
 
     for p in range (0, Nsteps):
 
-        
         A, B, C, D = Z3d(beta[p], h, Dn)
         Aimp, Bimp, Cimp, Dimp  = Z3d_mag(beta[p], h, Dn)
 
-        #print ("Shapes", np.shape(A), np.shape(B), np.shape(C), np.shape(D))
-        #print ("Shapes", np.shape(Aimp), np.shape(Bimp), np.shape(Cimp), np.shape(Dimp))
-
         CU = 0.0 
-        #CUimp = 0.0
 
         for iter in range (Niter):
 
             if h != 0:
-                A, B, C, D, Aimp, Bimp, Cimp, Dimp = coarse_graining(A,B,C,D, Aimp, Bimp, Cimp, Dimp) 
+                arr = [A,B,C,D,Aimp,Bimp,Cimp,Dimp]
+                A, B, C, D, Aimp, Bimp, Cimp, Dimp = coarse_graining(arr[0],arr[1],arr[2],arr[3],arr[4],arr[5],arr[6],arr[7]) 
             else:
-                A, B, C, D = coarse_graining(A,B,C,D, Aimp, Bimp, Cimp, Dimp)  
+                arr = [A,B,C,D]
+                A, B, C, D = coarse_graining(arr[0],arr[1],arr[2],arr[3])  
 
             T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
             norm = np.max(T)
@@ -358,22 +354,10 @@ if __name__ == "__main__":
             D  /= div
             CU += np.log(norm)/(2.0**(iter+1))
 
-            # Impure now
-
-            #Timp = contract('ika,amb,bnc,clj->ijklmn', Aimp, Bimp, Cimp, Dimp)
-            #norm = np.max(Timp)
-            #norm = np.max(Aimp)*np.max(Bimp)*np.max(Cimp)*np.max(Dimp) 
-            #div = np.sqrt(np.sqrt(norm))
             Aimp /= div
             Bimp /= div
             Cimp /= div 
             Dimp /= div
-
-            # Note: Though free energy is independent of how we normalize T
-            # magnetization depends on how you normalize both T and Timp
-
-            #CUimp += norm/(2.0**(iter+1))
-            
 
             if iter == Niter-1:
 
@@ -400,9 +384,8 @@ if __name__ == "__main__":
                     del Tmp1, Tmp3
                     Tmp5 = contract('bic,kim->bckm',Cimp,np.conjugate(C))
                     Zimp = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
-                    #Zimp_par = CUimp + (Zimp/(2.0**Niter))
                     mag[p] = Zimp/Z
-                    print (round(beta[p],5),round(f[p],16), mag[p])
+                    print (round(beta[p],5),round(f[p],16), round(mag[p],16))
 
                 else:
                     print (round(beta[p],5),round(f[p],16))
