@@ -30,7 +30,7 @@ if len(sys.argv) < 4:
 
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
-min_cut = float(sys.argv[3])
+h = float(sys.argv[3])
 
 
 if Dcut%2 == 0:
@@ -41,7 +41,7 @@ if Dcut%2 == 0:
 Dn = int(Dcut/2.0)
 L = np.zeros([2*Dn + 1])
 Dcut_triad = int(Dcut*2.) 
-h =  0.
+min_cut = 0.
 
 
 def dagger(a):
@@ -128,9 +128,9 @@ def Z3d(beta, h, Dn):
         T = contract('ija, akb, blc, cmn', A, B, C, D)
         diff = LA.norm(T) - LA.norm(out)
 
-        if abs(diff) > 1e-14:  
-            print ("WARNING: Triads not accurate", diff)
-            print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+        #if abs(diff) > 1e-14:  
+            #print ("WARNING: Triads not accurate", diff)
+            #print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
     else:
 
@@ -166,13 +166,12 @@ def Z3d(beta, h, Dn):
 
         T = contract('ija, akb, blc, cmn', A, B, C, D) 
         diff = LA.norm(T) - LA.norm(out)
-        print (diff)
 
         if abs(diff) > 1e-14:  
             print ("WARNING: Triads not accurate", diff)
             print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
-        sys.exit(1)
+        #sys.exit(1)
 
 
     
@@ -215,37 +214,30 @@ def Z3d_mag(beta, h, Dn):
     return Aimp, Bimp, Cimp, Dimp
 
 
-def coarse_graining(in1, in2, in3, in4):
-
-    A = in1
-    B = in2
-    C = in3
-    D = in4 
+def coarse_graining(in1, in2, in3, in4, in5, in6, in7, in8):
 
 
-    S2 = contract('dze,izj->diej', B, np.conjugate(B))
+    S2 = contract('dze,izj->diej', in2, np.conjugate(in2))
     a = np.shape(S2)[0] * np.shape(S2)[1]
     b = np.shape(S2)[2] * np.shape(S2)[3]
     S2 = np.reshape(S2,(a,b))
-    Tmp = contract('fyx,iyx->fi', D, np.conjugate(D))
-    R2 = contract('ewf,ijk,fk->eiwj', C, np.conjugate(C), Tmp)
+    Tmp = contract('fyx,iyx->fi', in4, np.conjugate(in4))
+    R2 = contract('ewf,ijk,fk->eiwj', in3, np.conjugate(in3), Tmp)
     del Tmp
     a = np.shape(R2)[0] * np.shape(R2)[1]
     b = np.shape(R2)[2] * np.shape(R2)[3]
     R2mat = np.reshape(R2,(a,b))
 
-    S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
+    S1 = contract('xyd,iyj->xidj', in1, np.conjugate(in1))
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
     Tmp = contract('bizz->bi', R2)
-    R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
+    R3 = contract('awb,ijk,bk->aiwj', in2, np.conjugate(in2), Tmp)
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-    #dum1 = S2 @ R2mat 
-    #Kprime = S1 @ dum1 @ R3mat.T @ S1.T
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
 
     a = int(np.sqrt(np.shape(Kprime)[0]))
@@ -253,229 +245,135 @@ def coarse_graining(in1, in2, in3, in4):
     K = np.reshape(Kprime,(b,a,b,a))         
     U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut)) 
 
-
-    S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
+    S1 = contract('ijk,ipq->jpkq', in1, np.conjugate(in1))
     a = np.shape(S1)[0] * np.shape(S1)[1]
     b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
-    R3 = contract('ijk,pqr,kr->ipjq', B, np.conjugate(B), Tmp) # Use 'Tmp' from above
+    R3 = contract('ijk,pqr,kr->ipjq', in2, np.conjugate(in2), Tmp) 
     a = np.shape(R3)[0] * np.shape(R3)[1]
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
     #Kprime = S1 @ dum1 @ R3mat.T @ S1.T # Use Tmp from above
-    #del dum1 
 
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))
     V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)
 
-    # Free some arrays which are no longer needed  
-    del K
-    del Kprime
-    del S1 
-    del R3 
 
-    Tmp1 = contract('cqp,pix -> cqix',D,U)
-    Tmp2 = contract('bji,qjy -> biqy',D,V)
+    Tmp1 = contract('cqp,pix -> cqix',in4,U)
+    Tmp2 = contract('bji,qjy -> biqy',in4,V)
     Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
-    del Tmp1, Tmp2
-    
-    MC = contract('ijk,pjr->ipkr', B, C)
-    Tmp = contract('ijab,azc,cxby->ijyxz', MC, C, Tmp3)
-
-    G, st, D = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
+    MC = contract('ijk,pjr->ipkr', in2, in3)
+    Tmp = contract('ijab,azc,cxby->ijyxz', MC, in3, Tmp3)
+    G, st, out4 = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
     G = contract('ijka,al->ijkl', G, st)  
-
-    del Tmp, Tmp3
-
     # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
-    Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), A)
-    Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), A)
+    Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), in1)
+    Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), in1)
     DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
-    DC = contract('dzb,xayd->zxyab', B, DC)
-
-    del Tmp2
-    del Tmp1
- 
+    DC = contract('dzb,xayd->zxyab', in2, DC) 
     Tmp1 = contract('ijkab,abmn->ijkmn', DC, G)
-    A, st2, MCprime = tensorsvd(Tmp1,[0,1],[2,3,4],Dcut) 
-
-    del Tmp1
-
+    out1, st2, MCprime = tensorsvd(Tmp1,[0,1],[2,3,4],Dcut) 
     MCprime = contract('ij,jklm->iklm', st2, MCprime)
-    B, st3, C = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-
-    del MCprime
-
+    out2, st3, out3 = tensorsvd(MCprime,[0,1],[2,3],Dcut)
     # Split singular piece here!
     sing = sqrtm(st3) 
-    B = contract('ijk,kp->ijp', B, sing)
-    C = contract('kj,jip->kip', sing, C)
-
-    return A,B,C,D 
+    out2 = contract('ijk,kp->ijp', out2, sing)
+    out3 = contract('kj,jip->kip', sing, out3)
 
 
-def coarse_graining_imp(n1, n2, n3, n4, i1, i2, i3, i4):
+    if h != 0: 
 
-    Aimp = i1
-    Bimp = i2
-    Cimp = i3
-    Dimp = i4 
+        
 
-    A = n1
-    B = n2 
-    C = n3
-    D = n4 
+        Tmp1 = contract('cqp,pix -> cqix',in8,U)
+        Tmp2 = contract('bji,qjy -> biqy',in4,V)
+        Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
 
-    S2 = contract('dze,izj->diej', Bimp, np.conjugate(B))
-    a = np.shape(S2)[0] * np.shape(S2)[1]
-    b = np.shape(S2)[2] * np.shape(S2)[3]
-    S2 = np.reshape(S2,(a,b))
-    Tmp = contract('fyx,iyx->fi', Dimp, np.conjugate(D))
-    R2 = contract('ewf,ijk,fk->eiwj', Cimp, np.conjugate(C), Tmp)
-    del Tmp
-    a = np.shape(R2)[0] * np.shape(R2)[1]
-    b = np.shape(R2)[2] * np.shape(R2)[3]
-    R2mat = np.reshape(R2,(a,b))
+        MC = contract('ijk,pjr->ipkr', in6, in3)  # DONE 
 
-    S1 = contract('xyd,iyj->xidj', Aimp, np.conjugate(A))
-    a = np.shape(S1)[0] * np.shape(S1)[1]
-    b = np.shape(S1)[2] * np.shape(S1)[3]
-    S1 = np.reshape(S1,(a,b))
-    Tmp = contract('bizz->bi', R2)
-    R3 = contract('awb,ijk,bk->aiwj', Bimp, np.conjugate(B), Tmp)
-    a = np.shape(R3)[0] * np.shape(R3)[1]
-    b = np.shape(R3)[2] * np.shape(R3)[3]
-    R3mat = np.reshape(R3,(a,b))
+        Tmp = contract('ijab,azc,cxby->ijyxz', MC, in7, Tmp3) # UC here 
 
-    #dum1 = S2 @ R2mat 
-    #Kprime = S1 @ dum1 @ R3mat.T @ S1.T
-    Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
+        G, st, out8 = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
+        G = contract('ijka,al->ijkl', G, st)  
+        # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
+        Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), in5)
+        Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), in1)
+        DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
+        DC = contract('dzb,xayd->zxyab', in2, DC)  # DONE 
+        Tmp1 = contract('ijkab,abmn->ijkmn', DC, G)
+        out5, st2, MCprime = tensorsvd(Tmp1,[0,1],[2,3,4],Dcut) 
+        MCprime = contract('ij,jklm->iklm', st2, MCprime)
+        out6, st3, out7 = tensorsvd(MCprime,[0,1],[2,3],Dcut)
+        # Split singular piece here!
+        sing = sqrtm(st3) 
+        out6 = contract('ijk,kp->ijp', out6, sing)
+        out7 = contract('kj,jip->kip', sing, out7)
 
-    a = int(np.sqrt(np.shape(Kprime)[0]))
-    b = int(np.sqrt(np.shape(Kprime)[1]))
-    K = np.reshape(Kprime,(b,a,b,a))         
-    U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut)) 
+        return out1,out2,out3,out4,out5,out6,out7,out8
 
 
-    S1 = contract('ijk,ipq->jpkq', Aimp, np.conjugate(A))
-    a = np.shape(S1)[0] * np.shape(S1)[1]
-    b = np.shape(S1)[2] * np.shape(S1)[3]
-    S1 = np.reshape(S1,(a,b))
-    R3 = contract('ijk,pqr,kr->ipjq', Bimp, np.conjugate(B), Tmp) # Use 'Tmp' from above
-    a = np.shape(R3)[0] * np.shape(R3)[1]
-    b = np.shape(R3)[2] * np.shape(R3)[3]
-    R3mat = np.reshape(R3,(a,b))
-
-
-    Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
-    #Kprime = S1 @ dum1 @ R3mat.T @ S1.T # Use Tmp from above
-    #del dum1 
-
-    a = int(np.sqrt(np.shape(Kprime)[0]))
-    b = int(np.sqrt(np.shape(Kprime)[1]))
-    K = np.reshape(Kprime,(b,a,b,a))
-    V, s1, VL = tensorsvd(K,[0,2],[1,3],Dcut)
-
-    # Free some arrays which are no longer needed  
-    del K
-    del Kprime
-    del S1 
-    del R3 
-
-    Tmp1 = contract('cqp,pix -> cqix',Dimp,U)
-    Tmp2 = contract('bji,qjy -> biqy',Dimp,V)
-    Tmp3 = contract('cqix,biqy -> cxby',Tmp1,Tmp2)
-    del Tmp1, Tmp2
-    
-    MC = contract('ijk,pjr->ipkr', Bimp, Cimp)
-    Tmp = contract('ijab,azc,cxby->ijyxz', MC, Cimp, Tmp3)
-
-    G, st, Dimp = tensorsvd(Tmp,[0,1,2],[3,4],Dcut) 
-    G = contract('ijka,al->ijkl', G, st)  
-
-    del Tmp, Tmp3
-
-    # DC = B_dzb * U*_pix * A_pqa * V*_qjy * A_ijd
-    Tmp1 = contract('pix,pqa->ixqa', np.conjugate(U), Aimp)
-    Tmp2 = contract('qjy,ijd->qyid', np.conjugate(V), Aimp)
-    DC = contract('ixqa,qyid->xayd', Tmp1, Tmp2)
-    DC = contract('dzb,xayd->zxyab', Bimp, DC)
-
-    del Tmp2
-    del Tmp1
- 
-    Tmp1 = contract('ijkab,abmn->ijkmn', DC, G)
-    Aimp, st2, MCprime = tensorsvd(Tmp1,[0,1],[2,3,4],Dcut) 
-
-    del Tmp1
-
-    MCprime = contract('ij,jklm->iklm', st2, MCprime)
-    Bimp, st3, Cimp = tensorsvd(MCprime,[0,1],[2,3],Dcut)
-
-    del MCprime
-
-    # Split singular piece here!
-    sing = sqrtm(st3) 
-    Bimp = contract('ijk,kp->ijp', Bimp, sing)
-    Cimp = contract('kj,jip->kip', sing, Cimp)
-
-    return Aimp,Bimp,Cimp,Dimp 
-
+    else:
+        return out1,out2,out3,out4
 
 
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.46, 0.47, 0.1).tolist()
+    beta = np.arange(0.4, 0.6, 0.01).tolist()
     Nsteps = int(np.shape(beta)[0])
     f = np.zeros(Nsteps)
     mag = np.zeros(Nsteps)
 
     for p in range (0, Nsteps):
 
-        A, B, C, D  = Z3d(beta[p], h, Dn)
+        
+        A, B, C, D = Z3d(beta[p], h, Dn)
         Aimp, Bimp, Cimp, Dimp  = Z3d_mag(beta[p], h, Dn)
 
+        #print ("Shapes", np.shape(A), np.shape(B), np.shape(C), np.shape(D))
+        #print ("Shapes", np.shape(Aimp), np.shape(Bimp), np.shape(Cimp), np.shape(Dimp))
+
         CU = 0.0 
+        #CUimp = 0.0
 
         for iter in range (Niter):
 
-            Anew, Bnew, Cnew, Dnew = coarse_graining(A,B,C,D)       
-            Aimp, Bimp, Cimp, Dimp = coarse_graining_imp(A, B, C, D, Aimp,Bimp,Cimp,Dimp)     
+            if h != 0:
+                A, B, C, D, Aimp, Bimp, Cimp, Dimp = coarse_graining(A,B,C,D, Aimp, Bimp, Cimp, Dimp) 
+            else:
+                A, B, C, D = coarse_graining(A,B,C,D, Aimp, Bimp, Cimp, Dimp)  
 
-            A = Anew
-            B = Bnew
-            C = Cnew
-            D = Dnew  
-            #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-            #norm = np.max(T)
+            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            norm = np.max(T)
             # Alt way to normalize!
-            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            #norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
             div = np.sqrt(np.sqrt(norm))
-
             A  /= div
             B  /= div
             C  /= div
             D  /= div
-
-            #Aimp /= div
-            #Bimp /= div
-            #Cimp /= div 
-            #Dimp /= div
-
-            # TODO HERE. Need to push 8 args to CG step.
-            # Need to do Ai Bi Ci Di with A* B* C* D*
-
-            print ("Norm of Bimp", LA.norm(Bimp))
-            print ("Norm of Cimp", LA.norm(Cimp))
-
-
             CU += np.log(norm)/(2.0**(iter+1))
+
+            # Impure now
+
+            #Timp = contract('ika,amb,bnc,clj->ijklmn', Aimp, Bimp, Cimp, Dimp)
+            #norm = np.max(Timp)
+            #norm = np.max(Aimp)*np.max(Bimp)*np.max(Cimp)*np.max(Dimp) 
+            #div = np.sqrt(np.sqrt(norm))
+            Aimp /= div
+            Bimp /= div
+            Cimp /= div 
+            Dimp /= div
+
+            # Note: Though free energy is independent of how we normalize T
+            # magnetization depends on how you normalize both T and Timp
+
+            #CUimp += norm/(2.0**(iter+1))
+            
 
             if iter == Niter-1:
 
@@ -487,31 +385,30 @@ if __name__ == "__main__":
                 Tmp5 = contract('bic,kim->bckm',C,np.conjugate(C))
                 Z = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
                 # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
+                # Pattern: T_dfhige * T*_dfhige
 
                 Z_par = CU + (np.log(Z)/(2.0**Niter))
                 f[p] = -Z_par
                 Free = f[p]*(1.0/beta[p])
 
-                print ("Norm of Aimp", LA.norm(Aimp))
-                
-                print ("Norm of Dimp", LA.norm(Dimp))
+                if h != 0: 
 
-                Tmp1 = contract('dfa,dfj->aj',Aimp,np.conjugate(A))
-                Tmp2 = contract('cge,mge->cm',Dimp,np.conjugate(D))
-                Tmp3 = contract('ahb,jhk->abjk',Bimp,np.conjugate(B))
-                Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
-                del Tmp1, Tmp3
-                Tmp5 = contract('bic,kim->bckm',Cimp,np.conjugate(C))
-                Zimp = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
-                print (Zimp, Z)
+                    Tmp1 = contract('dfa,dfj->aj',Aimp,np.conjugate(A))
+                    Tmp2 = contract('cge,mge->cm',Dimp,np.conjugate(D))
+                    Tmp3 = contract('ahb,jhk->abjk',Bimp,np.conjugate(B))
+                    Tmp4 = contract('aj,abjk->bk',Tmp1,Tmp3)
+                    del Tmp1, Tmp3
+                    Tmp5 = contract('bic,kim->bckm',Cimp,np.conjugate(C))
+                    Zimp = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
+                    #Zimp_par = CUimp + (Zimp/(2.0**Niter))
+                    mag[p] = Zimp/Z
+                    print (round(beta[p],5),round(f[p],16), mag[p])
 
-                mag[p] = Zimp/Z
-
-
-                print (round(beta[p],5),round(f[p],16),round(mag[p],16))
+                else:
+                    print (round(beta[p],5),round(f[p],16))
 
     # Make plots if needed! 
-    if Nsteps > 3: 
+    if Nsteps > 10: 
 
         dx = beta[1]-beta[0] # Assuming equal spacing ...
         dfdx = np.gradient(f, dx) 
