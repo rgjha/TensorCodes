@@ -15,9 +15,6 @@ from itertools import product
 import time
 import datetime
 from opt_einsum import contract
-from sklearn.decomposition import TruncatedSVD
-from sklearn.utils.extmath import randomized_svd
-import primme
 
 
 startTime = time.time()
@@ -70,10 +67,12 @@ def tensorsvd(input,left,right,D):
     T = np.reshape(T,(xsize,ysize))
 
     #U, s, V = svds(T, k=D , which = 'LM')   # Using SciPy
-    #U, s, V = primme.svds(T, D, which='LM') # Using PRIMME
+    #U, s, V = primme.svds(T, D, which='LM') # Using PRIMME (import primme if using this)
     # LM is for keeping large eigenvalues
     #s = np.diag(s)
     #U, s, V = randomized_svd(T, n_components=D, n_iter=5,random_state=5) # Using scikit-learn 
+    # Use "from sklearn.decomposition import TruncatedSVD" 
+    # and "from sklearn.utils.extmath import randomized_svd" if using this
 
     #'''
     U, s, V = sp.linalg.svd(T, full_matrices=False) 
@@ -124,9 +123,9 @@ def Z3d(beta, h, Dn):
         T = contract('ija, akb, blc, cmn', A, B, C, D)
         diff = LA.norm(T) - LA.norm(out)
 
-        #if abs(diff) > 1e-14:  
-            #print ("WARNING: Triads not accurate", diff)
-            #print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+        if abs(diff) > 1e-14:  
+            print ("WARNING: Triads not accurate", diff)
+            print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
     else:
 
@@ -166,9 +165,6 @@ def Z3d(beta, h, Dn):
         if abs(diff) > 1e-14:  
             print ("WARNING: Triads not accurate", diff)
             print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
-
-        #sys.exit(1)
-
 
     
     return A, B, C, D
@@ -256,7 +252,6 @@ def coarse_graining(*args):
     R3mat = np.reshape(R3,(a,b))
 
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
-    #Kprime = S1 @ dum1 @ R3mat.T @ S1.T # Use Tmp from above
 
     a = int(np.sqrt(np.shape(Kprime)[0]))
     b = int(np.sqrt(np.shape(Kprime)[1]))
@@ -343,10 +338,10 @@ if __name__ == "__main__":
                 arr = [A,B,C,D]
                 A, B, C, D = coarse_graining(arr[0],arr[1],arr[2],arr[3])  
 
-            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-            norm = np.max(T)
+            #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            #norm = np.max(T)
             # Alt way to normalize!
-            #norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
             div = np.sqrt(np.sqrt(norm))
             A  /= div
             B  /= div
@@ -358,6 +353,7 @@ if __name__ == "__main__":
             Bimp /= div
             Cimp /= div 
             Dimp /= div
+            
 
             if iter == Niter-1:
 
