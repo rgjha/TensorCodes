@@ -130,7 +130,7 @@ def Z3d_U1(beta, D):
     return A,B,C,D
 
     
-def coarse_graining(in1, in2, in3, in4,impure=False):
+def coarse_graining(in1, in2, in3, in4):
 
     A = in1
     B = in2
@@ -150,7 +150,6 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
 
     S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
     a = np.shape(S1)[0] * np.shape(S1)[1]
-    b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
     Tmp = contract('bizz->bi', R2)
     R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
@@ -158,7 +157,6 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     b = np.shape(R3)[2] * np.shape(R3)[3]
     R3mat = np.reshape(R3,(a,b))
 
-    #Kprime = S1 @ S2 @ R2mat @ R3mat.T @ S1.T
     Kprime = contract('ia,ab,bc,cd,de',S1,S2,R2mat,R3mat.T,S1.T)
     # Surprisingly, the above step is prone to some dependence on 
     # whethere we use 'matmul', 'dot', '@' and 'contract' 
@@ -167,7 +165,6 @@ def coarse_graining(in1, in2, in3, in4,impure=False):
     b = int(np.sqrt(np.shape(Kprime)[1]))
     K = np.reshape(Kprime,(b,a,b,a))  # K_x1,x2,x3,x4         
     U, s1, UL = tensorsvd(K,[0,2],[1,3],int(Dcut)) 
-
 
     # Now finding "V"
     S1 = contract('ijk,ipq->jpkq', A, np.conjugate(A))
@@ -254,13 +251,13 @@ if __name__ == "__main__":
 
             A, B, C, D = coarse_graining(A,B,C,D)  
             #print ("Finished", iter+1, "of", Niter , "steps of CG")
-            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-            norm = np.max(T)
-            div = np.sqrt(np.sqrt(norm))
+            #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            #norm = np.max(T)
+            #div = np.sqrt(np.sqrt(norm))
 
             # Alt way to normalize!
-            #norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
-            #div = np.sqrt(np.sqrt(norm))
+            norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
+            div = np.sqrt(np.sqrt(norm))
 
             A  /= div
             B  /= div
@@ -284,7 +281,6 @@ if __name__ == "__main__":
                     f[p] = -Free/temp[p] 
                     #print ("Free energy is ", round(Free,8), " @ T =", round(temp[p],8), "with bond dimension", Dcut)
                     print (round(temp[p],8), round(Free,8))
-                    #print (round(temp[p],10),round(f[p],10)) 
                     if round(temp[p],4) == 4.5115:
                         index = p 
 
