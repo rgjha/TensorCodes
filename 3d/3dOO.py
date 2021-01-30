@@ -1,3 +1,7 @@
+# This implements triad renormalization network for 3d O(2) model.
+# Work in progress. Checks are not complete. 
+# Based on algorithm proposed in 1912.02414 
+
 import sys
 import math
 from math import sqrt
@@ -32,8 +36,6 @@ start = float(sys.argv[4])
 end = float(sys.argv[5])
 incr = float(sys.argv[6])
 h = float(sys.argv[7])
-
-
 L = np.zeros([2*Dn + 1])
 Dcut_triad = int(Dcut*2.) 
 
@@ -98,10 +100,13 @@ def Z3d(beta, h, Dn):
         for i in range (-Dn,Dn+1):
             L[i+Dn] = np.sqrt(iv(i, beta))
         out = contract("i,j,k,l,m,n->ijklmn", L, L, L, L, L, L)
+        out_imp = contract("i,j,k,l,m,n->ijklmn", L, L, L, L, L, L)
 
         for l,r,u,d,f,b in product(range(-Dn, Dn+1), repeat=6):
             index = l-b-d+u+f-r
             out[l+Dn,b+Dn,d+Dn,u+Dn,f+Dn,r+Dn] *= iv(index, beta*h)
+            fac = 0.25*iv(index-2, beta*h) + 0.25*iv(index+2, beta*h) + 0.5*iv(index, beta*h)
+            out_imp[l+Dn][b+Dn][d+Dn][u+Dn][f+Dn][r+Dn] *= fac
 
     
         Tmp1, sing, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
@@ -120,12 +125,29 @@ def Z3d(beta, h, Dn):
         B = contract('ijk,kp->ijp', Tmp5, sing)
         C = contract('kp,pij->kij', sing, Tmp6)
 
-        T = contract('ija, akb, blc, cmn', A, B, C, D)
-        diff = LA.norm(T) - LA.norm(out)
+        #T = contract('ija, akb, blc, cmn', A, B, C, D)
+        #diff = LA.norm(T) - LA.norm(out)
 
-        if abs(diff) > 1e-14:  
-            print ("WARNING: Triads not accurate", diff)
-            print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+        #if abs(diff) > 1e-14:  
+        #    print ("WARNING: Triads not accurate", diff)
+        #    print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
+        
+        Tmp1, sing, Tmp2 = tensorsvd(out_imp,[0,1],[2,3,4,5],Dcut_triad) 
+        sing = sqrtm(sing)
+        Aimp = contract('ijk,kp->ijp', Tmp1, sing)  
+        Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
+
+        Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
+        sing = sqrtm(stmp2)
+        Dimp = contract('kp,pij->kij', sing, Tmp4) 
+
+        Tmp3 = contract('pqrs,sj->pqrj', Tmp3, sing)
+
+        Tmp5, stmp3, Tmp6 = tensorsvd(Tmp3,[0,1],[2,3],Dcut_triad)
+        sing = sqrtm(stmp3)
+        Bimp = contract('ijk,kp->ijp', Tmp5, sing)
+        Cimp = contract('kp,pij->kij', sing, Tmp6)
+
 
     else:
 
@@ -157,53 +179,19 @@ def Z3d(beta, h, Dn):
         for i,j,k in product(range(-2*Dn, 2*Dn+1), range(-Dn, Dn+1), range(-Dn, Dn+1)):
             if ((-i+j+k) == 0):
                 D[i+2*Dn,j+Dn,k+Dn] = np.sqrt(iv(j, beta) * iv(k, beta))
+        
 
 
-        T = contract('ija, akb, blc, cmn', A, B, C, D) 
-        diff = LA.norm(T) - LA.norm(out)
+        #T = contract('ija, akb, blc, cmn', A, B, C, D) 
+        #diff = LA.norm(T) - LA.norm(out)
 
-        if abs(diff) > 1e-14:  
-            print ("WARNING: Triads not accurate", diff)
-            print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
-
-    
-    return A, B, C, D
-
-
-def Z3d_mag(beta, h, Dn):
-
-    for i in range (-Dn,Dn+1):
-        L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
-    out = contract("i,j,k,l,m,n->ijklmn", L, L, L, L, L, L)
-
-    for l in range (-Dn,Dn+1):
-        for r in range (-Dn,Dn+1):
-            for u in range (-Dn,Dn+1):
-                for d in range (-Dn,Dn+1):
-                    for f in range (-Dn,Dn+1):
-                        for b in range (-Dn,Dn+1):
-
-                            index = l-b-d+u+f-r   
-                            out[l+Dn][b+Dn][d+Dn][u+Dn][f+Dn][r+Dn] *= 0.50*(iv(index-1, beta*h) + iv(index+1, beta*h))
+        #if abs(diff) > 1e-14:  
+        #    print ("WARNING: Triads not accurate", diff)
+        #    print ("Timestamp: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
 
     
-    Tmp1, sing, Tmp2 = tensorsvd(out,[0,1],[2,3,4,5],Dcut_triad) 
-    sing = sqrtm(sing)
-    Aimp = contract('ijk,kp->ijp', Tmp1, sing)  
-    Tmp2 = contract('ip,pqrst->iqrst', sing, Tmp2)
+    return A, B, C, D, Aimp, Bimp, Cimp, Dimp
 
-    Tmp3, stmp2, Tmp4 = tensorsvd(Tmp2,[0,1,2],[3,4],Dcut_triad) 
-    sing = sqrtm(stmp2)
-    Dimp = contract('kp,pij->kij', sing, Tmp4) 
-
-    Tmp3 = contract('pqrs,sj->pqrj', Tmp3, sing)
-
-    Tmp5, stmp3, Tmp6 = tensorsvd(Tmp3,[0,1],[2,3],Dcut_triad)
-    sing = sqrtm(stmp3)
-    Bimp = contract('ijk,kp->ijp', Tmp5, sing)
-    Cimp = contract('kp,pij->kij', sing, Tmp6)
-
-    return Aimp, Bimp, Cimp, Dimp
 
 
 def coarse_graining(*args):
@@ -324,8 +312,7 @@ if __name__ == "__main__":
 
     for p in range (0, Nsteps):
 
-        A, B, C, D = Z3d(beta[p], h, Dn)
-        Aimp, Bimp, Cimp, Dimp  = Z3d_mag(beta[p], h, Dn)
+        A, B, C, D, Aimp, Bimp, Cimp, Dimp = Z3d(beta[p], h, Dn)
 
         CU = 0.0 
 
@@ -339,6 +326,7 @@ if __name__ == "__main__":
                 A, B, C, D = coarse_graining(arr[0],arr[1],arr[2],arr[3])  
 
             #T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            # Expensive step, so bypass! 
             #norm = np.max(T)
             # Alt way to normalize!
             norm = np.max(A)*np.max(B)*np.max(C)*np.max(D) 
@@ -380,8 +368,11 @@ if __name__ == "__main__":
                     del Tmp1, Tmp3
                     Tmp5 = contract('bic,kim->bckm',Cimp,np.conjugate(C))
                     Zimp = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
-                    mag[p] = Zimp/Z
+                    mag[p] = Zimp/Z # Or susceptibility (multiply by \beta for latter!) 
                     print (round(beta[p],5),round(f[p],16), round(mag[p],16))
+                    file=open("all_suscept_3dXY.txt", "a+")
+                    file.write("%4.8f \t %2.10e \t  %2.10e \t %2.0f \t %2.0f \t %2.0f \t %2.2e \n" % (beta[p], Free, mag[p], Niter, Dcut, Dn, h))
+                    file.close()
 
                 else:
                     print (round(beta[p],5),round(f[p],16))
