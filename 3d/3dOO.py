@@ -1,6 +1,7 @@
 # This implements triad renormalization network for 3d O(2) model.
 # Work in progress. Checks are not complete. 
 # Based on algorithm proposed in 1912.02414 
+# Most precise critical beta result known from MC: 0.4541647(1)
 
 import sys
 import math
@@ -358,6 +359,14 @@ if __name__ == "__main__":
                 Z_par = CU + (np.log(Z)/(2.0**Niter))
                 f[p] = -Z_par
                 Free = f[p]*(1.0/beta[p])
+                
+                # B_ajb * C_bjg * D_gfi -> Z_afi
+                # A_iba * Z_afi = T_bf 
+                Tmp1 = contract('ajb,bjg->ag',B,C)
+                Tmp2 = contract('ag,gfi->afi',Tmp1,D)
+                Tmp3 = contract('iba,afi->fb',A,Tmp2)
+                X_fp = (np.trace(Tmp3))**2
+                X_fp /= np.trace(Tmp3 @ Tmp3)
 
                 if h != 0: 
 
@@ -370,8 +379,8 @@ if __name__ == "__main__":
                     Zimp = contract('bckm,bk,cm',Tmp5,Tmp4,Tmp2)
                     mag[p] = Zimp/Z # Or susceptibility (multiply by \beta for latter!) 
                     print (round(beta[p],5),round(f[p],16), round(mag[p],16))
-                    file=open("all_suscept_3dXY.txt", "a+")
-                    file.write("%4.8f \t %2.10e \t  %2.10e \t %2.0f \t %2.0f \t %2.0f \t %2.2e \n" % (beta[p], Free, mag[p], Niter, Dcut, Dn, h))
+                    file=open("all_3dXY.txt", "a+")
+                    file.write("%4.8f \t %2.10e \t  %2.10e \t %2.0f \t %2.0f \t %2.0f \t %2.2e \n" % (beta[p], Free, mag[p], X_fp, Niter, Dcut, Dn, h))
                     file.close()
 
                 else:
