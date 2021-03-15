@@ -18,13 +18,16 @@ startTime = time.time()
 print ("STARTED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S")) 
 
 
-if len(sys.argv) < 4:
-  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, r_max>")
+if len(sys.argv) < 6:
+  print("Usage:", str(sys.argv[0]), "<Niter, Dcut, r_max, start, end>")
   sys.exit(1)
 
 Niter = int(sys.argv[1])
 Dcut = int(sys.argv[2])
 rmax = float(sys.argv[3])
+start= float(sys.argv[4])
+end = float(sys.argv[5])
+incr = 0.05  # Move later to arg maybe!
 rep = [x for x in range (0, int(2.0*rmax)+1, 1)]       
 rep1 = [x for x in range (0, int(4.0*rmax)+1, 1)]       
 rep2 = [x for x in range (0, int(6.0*rmax)+1, 1)]      
@@ -409,8 +412,7 @@ def makeD(rep, beta):
 if __name__ == "__main__":
 
 
-    beta = np.arange(0.60, 0.70, 0.05).tolist()
-    beta = np.arange(1.15, 1.2, 0.1).tolist()
+    beta = np.arange(start, end, incr).tolist()
     Nsteps = int(np.shape(beta)[0])
     data = np.zeros(Nsteps)
 
@@ -430,33 +432,18 @@ if __name__ == "__main__":
         
         CU = 0.0 
 
-        T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-        norm = np.max(T)
-        div = np.sqrt(np.sqrt(norm))
-
-        A  /= div
-        B  /= div
-        C  /= div
-        D  /= div
-        CU += np.log(norm)/(2.0)
-
-
-
         for iter in range (Niter):
 
             A, B, C, D = coarse_graining(A,B,C,D)    
-            T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
-            norm = np.max(T)
+            norm = LA.norm(A)*LA.norm(B)*LA.norm(C)*LA.norm(D)
             div = np.sqrt(np.sqrt(norm))
-
             A  /= div
             B  /= div
             C  /= div
             D  /= div
             CU += np.log(norm)/(2.0**(iter+1))
-            
 
-        
+            
             if iter == Niter-1:
 
                 Tmp1 = contract('dfa,dfj->aj',A,np.conjugate(A))
@@ -468,8 +455,11 @@ if __name__ == "__main__":
                 # Pattern: dfa,ahb,bic,cge,dfj,jhk,kim,mge
   
                 Free = -(1.0/beta[p])*(CU + (np.log(Z)/(2.0**Niter)))
-                data[p] = beta[p]*Free 
-                print ("f/V =", round(Free,4), "@ beta =", round(beta[p],4), "with D, Niter ->", Dcut, Niter) 
+                data[p] = beta[p]*Free
+                print ("f/V =", round(data[p],16), "beta =", round(beta[p],4), "with D =", Dcut, "and Niter =", Niter)
+                file=open("3dPCM_logZ.txt", "a+")
+                file.write("%2.8f \t %4.16f \t %3.0f \t %3.0f \n" % (beta[p], data[p], Niter, Dcut))
+                file.close()
 
 
     if Nsteps > 4:
