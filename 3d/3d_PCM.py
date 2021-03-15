@@ -478,7 +478,9 @@ if __name__ == "__main__":
         plt.title(r"3d SU(2) PCM model using Triad TRG",fontsize=16, color='black')
         fig.tight_layout()
         plt.show()
-
+    
+    endTime = time.time() 
+    print ("Running time:", round(endTime - startTime, 2),  "seconds")
     print ("COMPLETED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S")) 
     
 
