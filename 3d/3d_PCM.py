@@ -56,11 +56,6 @@ def factorial(N):
     if N < 0:
         raise ValueError("N is negative !!! ", N)
         return 9999
-    if math.floor(N) != N:
-        raise ValueError("N must be an exact integer !!! ", N)
-        return 9999 
-    if N+1 == N:
-        raise OverflowError("N is too large !!!")
     result = 1
     factor = 2
     while factor <= N:
@@ -407,6 +402,89 @@ def makeD(rep, beta):
                 D[i][j][k] = d1 * d2 * d3
 
     return  D
+  
+  
+  def makeT(rep, beta):
+
+    T = np.zeros([N_r, N_r, N_r, N_r, N_r, N_r])
+    count = 0
+
+    for rp1, rm1, rp2, rm2, rp3, rm3 in product(rep, repeat=6):
+
+        m1, m2, m3, m4, m5, m6 = [], [], [], [], [], []  
+        n1, n2, n3, n4, n5, n6 = [], [], [], [], [], []  
+
+        for x in range (-rp1, rp1+1, 2):
+            m1.append(x/2.0) if x/2.0 not in m1 else m1
+            n1.append(x/2.0) if x/2.0 not in n1 else n1
+
+        for x in range (-rm1, rm1+1, 2):
+            m2.append(x/2.0) if x/2.0 not in m2 else m2
+            n2.append(x/2.0) if x/2.0 not in n2 else n2
+
+        for x in range (-rp2, rp2+1, 2):
+            m3.append(x/2.0) if x/2.0 not in m3 else m3
+            n3.append(x/2.0) if x/2.0 not in n3 else n3
+
+        for x in range (-rm2, rm2+1, 2):
+            m4.append(x/2.0) if x/2.0 not in m4 else m4
+            n4.append(x/2.0) if x/2.0 not in n4 else n4
+
+        for x in range (-rp3, rp3+1, 2):
+            m5.append(x/2.0) if x/2.0 not in m5 else m5
+            n5.append(x/2.0) if x/2.0 not in n5 else n5
+
+        for x in range (-rm3, rm3+1, 2):
+            m6.append(x/2.0) if x/2.0 not in m6 else m6
+            n6.append(x/2.0) if x/2.0 not in n6 else n6
+
+
+        for m1_e, n1_e, m2_e, n2_e, m3_e, n3_e, m4_e, n4_e, m5_e, n5_e, m6_e, n6_e  in \
+        itertools.product(m1, n1, m2, n2, m3, n3, m4, n4, m5, n5, m6, n6):
+
+
+            i, j, k, l, m, n = index(rp1,m1_e,n1_e), index(rm1,m2_e,n2_e), index(rp2,m3_e,n3_e), \
+                               index(rm2,m4_e,n4_e), index(rp3,m5_e,n5_e), index(rm3,m6_e,n6_e)
+
+
+            if m1_e + m3_e + m5_e == m2_e + m4_e + m6_e and n1_e + n3_e + n5_e == n2_e + n4_e + n6_e:
+            # Essential to match to the triads when combined to form "T"
+            # It seems that triads know this already for r=1/2 and r=1 (checked!)
+            # Haven't checked yet for r=3/2, r=2.
+            
+            # For rmax=3/2 at beta=1.15, match to:
+            # Norm of A 4.955635359661975 (30, 30, 140)
+            # Norm of B 9.356609024665483 (140, 30, 385)
+            # Norm of C 9.356609024665483 (385, 30, 140)
+            # Norm of D 4.955635359661976 (140, 30, 30)
+            # Norm of T 6.390087964983602 (30, 30, 30, 30, 30, 30)
+            # obtained by making triads and then doing  ->  T = contract('ika,amb,bnc,clj->ijklmn', A, B, C, D)
+            
+            # It (probably) gets even more interesting for rmax=2 where with beta=1.15
+            
+            # A: 5.034723807457849 • B: 11.914373131180332 • C: 11.914373131180328 • D: 5.034723807457853
+            # while in the original description (i.e. not imposing magnetic conservation in triads), we get 
+            # A: 5.0346403264492645 • B: 11.904349033872354 • C: 11.904349033872354 • D: 5.0346403264492645 
+            
+            
+                for R in range (abs(rp1-rp2), abs(rp1+rp2+1), 2):
+                    for Rprime in range (abs(R-rp3), abs(R+rp3+1) , 2):
+                        for Rdprime in range (abs(rm1-rm2), abs(rm1+rm2+1), 2):
+                        
+
+                            a1 = CGC((rp1/2.0), m1_e, (rp2/2.0), m3_e, (R/2.0), m1_e+m3_e) * CGC((rp1/2.0), n1_e, (rp2/2.0), n3_e, (R/2.0), n1_e+n3_e) 
+                            a2 = CGC((rm1/2.0), m2_e, (rm2/2.0), m4_e,(Rdprime/2.0), m2_e+m4_e) * CGC((rm1/2.0), n2_e, (rm2/2.0), n4_e, (Rdprime/2.0), n2_e+n4_e) 
+                            a3 = CGC((R/2.0), m1_e+m3_e, (rp3/2.0), m5_e,(Rprime/2.0), m1_e+m3_e+m5_e) * CGC((R/2.0), n1_e+n3_e, (rp3/2.0), n5_e, (Rprime/2.0), n1_e+n3_e+n5_e) 
+                            a4 = CGC((Rdprime/2.0), m2_e+m4_e, (rm3/2.0), m6_e,(Rprime/2.0), m2_e+m4_e+m6_e) * CGC((Rdprime/2.0), n2_e+n4_e, (rm3/2.0), n6_e, (Rprime/2.0), n2_e+n4_e+n6_e)
+                            a5 = 1.0/(Rprime + 1)
+                            T[i][j][k][l][m][n] += a1 * a2 * a3 * a4 * a5 
+
+
+                T[i][j][k][l][m][n] *= sqrt(Fr((rp1), beta)*Fr((rp2), beta)*Fr((rp3), beta))*\
+                            sqrt(Fr((rm1), beta) * Fr((rm2), beta) * Fr((rm3), beta))
+
+
+    return  T
 
 
 if __name__ == "__main__":
@@ -424,6 +502,7 @@ if __name__ == "__main__":
         C = makeC(rep, beta[p])
 
         '''
+        # For checks
         print ("Norm of A", round(LA.norm(A),16))
         print ("Norm of B", round(LA.norm(B),16))
         print ("Norm of C", round(LA.norm(C),16))
