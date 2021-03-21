@@ -152,11 +152,11 @@ def Z3d(beta, h, Dn):
 
     else:
 
-        out = np.zeros(np.repeat(Dcut, 6))
-        for l,r,u,d,f,b in product(range(-Dn, Dn+1), repeat=6):
-            index = l-b-d+u+f-r
-            if index == 0:
-                out[l+Dn,b+Dn,d+Dn,u+Dn,f+Dn,r+Dn] = np.sqrt(iv(l, beta)*iv(r, beta)*iv(u, beta)*iv(d, beta)*iv(f, beta)*iv(b, beta))
+        #out = np.zeros(np.repeat(Dcut, 6))
+        #for l,r,u,d,f,b in product(range(-Dn, Dn+1), repeat=6):
+        #    index = l-b-d+u+f-r
+        #    if index == 0:
+        #        out[l+Dn,b+Dn,d+Dn,u+Dn,f+Dn,r+Dn] = np.sqrt(iv(l, beta)*iv(r, beta)*iv(u, beta)*iv(d, beta)*iv(f, beta)*iv(b, beta))
 
 
         A = np.zeros((Dcut, Dcut, Dcut*2)) 
@@ -414,6 +414,7 @@ if __name__ == "__main__":
         outplot += '.pdf'   
         plt.savefig(outplot)
 
-
+    endTime = time.time() 
+    print ("Running time:", round(endTime - startTime, 2),  "seconds")
     print ("COMPLETED:" , datetime.datetime.now().strftime("%d %B %Y %H:%M:%S"))  
     
