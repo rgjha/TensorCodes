@@ -2,6 +2,8 @@
 # Work in progress. Checks are not complete. 
 # Based on algorithm proposed in 1912.02414 
 # Most precise critical beta result known from MC: 0.4541647(1)
+# An improved version of this code was used to
+# obtain results in arXiv: 2105.08066
 
 import sys
 import math
