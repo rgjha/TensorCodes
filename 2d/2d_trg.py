@@ -60,10 +60,10 @@ from numpy import linalg as LA
 from numpy import ndarray
 import time 
 import datetime 
-from packages import ncon
+from ncon import ncon
 
 if len(sys.argv) < 3:
-  print("Usage:", str(sys.argv[0]), "<Verbose or not>  <kappa> ")
+  print("Usage:", str(sys.argv[0]), "<kappa> <Niters>")
   sys.exit(1)
 
 
@@ -72,20 +72,17 @@ print ("STARTED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print ("-----------------------------------------------------------------")
 
  
-rmax = 0.5             # Maximum rep. to consider
-
+rmax = 0.5  # Maximum irrep. to consider
 representation = [x for x in range (0, int(2.0*rmax)+1, 1)] 
-dim = [x+1 for x in representation]      # 2r + 1                 
+dim = [x+1 for x in representation]  # 2r + 1                 
 N_r = int(sum(np.square(dim))) 
-N_m = int(max(dim))                               
-N=2                                    
-g=sqrt(2)
-#beta = 2.0*N/(g**2)
-beta=0.0
-Niters = 3                             
+N_m = int(max(dim))                                                                   
+kappa = float(sys.argv[1])    # Coupling 
+Niters = int(sys.argv[2])                             
 Ns = int(2**((Niters)))  
 Nt = Ns      
 vol = Nt * Ns
+beta = 0.01*vol
 D_cut = 26
 
 # Time ~ 17 sec with D_cut=40 and Niters=6
@@ -95,10 +92,6 @@ D_cut = 26
 if D_cut <= N_r**2:
   print("Usage: D_cut must be greater than " , N_r**2,  "for now")
   sys.exit(1)
-
-
-verbose = int(sys.argv[1]) 
-kappa = float(sys.argv[2])    # Coupling 
 
 
 A = np.zeros([N_r, N_r])    
@@ -191,15 +184,15 @@ def CGC(j1, m1, j2, m2, j, m):
 
 ##############################
 def Fr(a, b):
-    if b < 0 or a < 0:
-        raise ValueError(" a or b is negative !!! ")
-        return 0
-    elif b==0 and a==1:
+    if b == 0 and a == 1 :
         return 0
     elif b==0 and a==0:
-        return 2.0 * (a+1.0) * 0.50   # lim besselj[1,x]/x as x->0 = 0.5
-    else:
+        return 2.0 * (a+1.0) * 0.50   # Limit[BesselJ[1, x]/x, x -> 0] = 0.5
+    elif b == 0 and a > 0:
+        return 0
+    else: 
         return 2.0 * (a+1.0) * (sp.special.iv((a+1.0), b)/(b)) 
+
 ##############################
 
 
@@ -234,7 +227,8 @@ def make_tensorA(rep):
                             for sigma in range(abs(r_l-r_r), abs(r_l+r_r)+1, 2):   
                                 CG1 = CGC((r_l/2.0), m_al, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_bl)
                                 CG2 = CGC((r_l/2.0), m_ar, (sigma/2.0), (m_bl - m_al), (r_r/2.0), m_br) 
-                                A[k][l] += Fr((sigma), kappa) *  CG1  *  CG2 / (r_r + 1)
+                                tmp1 = Fr(sigma, kappa)*CG1*CG2/(r_r + 1)
+                                A[k][l] += tmp1
 
     return A  
 ##############################
@@ -350,7 +344,8 @@ def coarse_graining(matrix, eps, nc, count):
     M_prime = M.reshape(d, d*(N_r**2))      
     MMdag_prime = np.dot(M_prime, dagger(M_prime))    
     
-    w, U = LA.eigh(MMdag_prime)   # U, s1, V = LA.svd(MMdag_prime)
+    w, U = LA.eigh(MMdag_prime)
+    #U, s1, V = LA.svd(MMdag_prime)
     idx = w.argsort()[::-1]
     s1 = w[idx]
     U = U[:,idx]
