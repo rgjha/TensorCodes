@@ -1,15 +1,15 @@
 # TensorCodes
-This repository contains a random collection of codes written in Python & Julia (some are work in progress) to study several
-observables in models using HOTRG/TNR/Triad algorithms. For index contractions, mostly NCON [introduced in
+This repository contains a random collection of codes (some in progress!) written mostly in Python & a 3d version of TRG in Julia to study several
+observables in spin and gauge models using HOTRG/TNR/Triad algorithms. For index contractions, mostly NCON [introduced in
 https://arxiv.org/abs/1402.0939] is used since it is faster than "einsum" or "tensordot" in my tests. Recently, 
-I came across "contract" as introduced first in https://doi.org/10.21105/joss.00753. The different algorithms employed 
+I came across "contract" as introduced in https://doi.org/10.21105/joss.00753. The different algorithms employed 
 in these codes were introduced in the following papers: 
 
-HOTRG --> https://arxiv.org/abs/1201.1144  
+`HOTRG` in `https://arxiv.org/abs/1201.1144`  
 
-TNR --> https://arxiv.org/abs/1412.0732
+`TNR` in `https://arxiv.org/abs/1412.0732`
 
-Triad --> https://arxiv.org/abs/1912.02414
+`Triad` in `https://arxiv.org/abs/1912.02414`
 
 Example of how index contraction works (in Julia) where I have been playing around with different options: 1) @tensor [https://github.com/Jutho/TensorOperations.jl] 2) @einsum [https://github.com/ahwillia/Einsum.jl] 
 
@@ -96,13 +96,13 @@ s = np.diag(s)
 # Note that as compared to SciPy's command: U, s, V = sp.linalg.svd(T, full_matrices=False) 
 # we have to create a diagonal matrix out of 's' as well if using PRIMME/svds
 # It is good idea to provide tolerance to PRIMME's SVD. If you don't then 
-# tolerance is 10^4 times the machine precision [approx~ 10^-12]. 
+# tolerance is 10^4 times the machine precision [approx.~ 10^-12]. 
 
 ```
 
 # Cite 
 
-If you used the code `2dXY_HOTRG.py` or `2dXY.py` (or any part of it) or any other code given in `2d` directory, please consider cite:
+If you used the code `2dXY_HOTRG.py` or `2dXY.py` (or any part of it) or any other code given in `2d` directory, please cite:
 
 ```bibtex
 @article{Jha:2020oik,
@@ -120,7 +120,7 @@ If you used the code `2dXY_HOTRG.py` or `2dXY.py` (or any part of it) or any oth
 ```
 
 
-If you used the code `2d_trg.py` (or any part of it) or any code given in `2d` directory, please consider cite:
+If you used the code `2d_trg.py` (or any part of it) or any code given in `2d` directory, please cite:
 
 ```bibtex
 @article{Bazavov:2019qih,
@@ -153,5 +153,4 @@ If you used the code `3dOO.py` (or any part of it, say the implementation of tri
 }
 ```
  
-
-Please send questions/suggestions about this repository to rgjha1989@gmail.com
+Please send questions/suggestions about this repository to raghav.govind.jha@gmail.com

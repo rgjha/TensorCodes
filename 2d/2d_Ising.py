@@ -8,7 +8,7 @@ from numpy import linalg as LA
 from numpy import ndarray
 import time 
 import datetime 
-from packages import ncon
+from ncon import ncon
 
 if len(sys.argv) < 2:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>")

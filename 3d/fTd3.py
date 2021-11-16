@@ -1,3 +1,4 @@
+#fT = finite temp.
 import sys
 import math
 from math import sqrt

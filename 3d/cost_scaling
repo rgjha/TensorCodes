@@ -17,3 +17,4 @@ D	Time (in sec.)	 free energy
 82	53736
 
 # Note that -3.5091 agrees with -3.5093(2) given in 1912.02414
+# This is analyzed in detail in Appendix of https://arxiv.org/abs/2105.08066

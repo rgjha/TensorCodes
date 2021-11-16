@@ -1,8 +1,9 @@
 # Tensor formulation of a classical statistical 2d model
 # This proceeds by blocking simulatenously along both directions. 
 # Reproduces free energy and magentization from arxiv:1309.04963
-# D=53 with Niter=40 takes ~ 10 hours (The timing is on the Symmetry machine at PI)
-# D=55 gives memory error on Symmetry!
+# D = 53 with Niter = 40 takes ~ 10 hours (The timing is on the Symmetry machine at PI)
+# D = 55 gives memory error on Symmetry!
+# Part of this code was used for https://arxiv.org/abs/2004.06314
 
 import sys
 import math

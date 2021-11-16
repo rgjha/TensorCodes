@@ -54,5 +54,3 @@ ax2.tick_params(axis='y', labelcolor=color)
 plt.title(r"3d classical Ising model using Triad TRG",fontsize=16, color='black')
 fig.tight_layout()
 plt.show()
-
-    
