@@ -100,7 +100,58 @@ s = np.diag(s)
 
 ```
 
+# Cite 
+
+If you used the code `2dXY_HOTRG.py` or `2dXY.py` (or any part of it) or any other code given in `2d` directory, please consider cite:
+
+```bibtex
+@article{Jha:2020oik,
+    author = "Jha, Raghav G.",
+    title = "{Critical analysis of two-dimensional classical XY model}",
+    eprint = "2004.06314",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-lat",
+    doi = "10.1088/1742-5468/aba686",
+    journal = "J. Stat. Mech.",
+    volume = "2008",
+    pages = "083203",
+    year = "2020"
+}
+```
 
 
+If you used the code `2d_trg.py` (or any part of it) or any code given in `2d` directory, please consider cite:
+
+```bibtex
+@article{Bazavov:2019qih,
+    author = "Bazavov, Alexei and Catterall, Simon and Jha, Raghav G. and Unmuth-Yockey, Judah",
+    title = "{Tensor renormalization group study of the non-Abelian Higgs model in two dimensions}",
+    eprint = "1901.11443",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-lat",
+    doi = "10.1103/PhysRevD.99.114507",
+    journal = "Phys. Rev. D",
+    volume = "99",
+    number = "11",
+    pages = "114507",
+    year = "2019"
+}
+```
+
+
+If you used the code `3dOO.py` (or any part of it, say the implementation of triads) given in `3d` directory, please cite:
+
+```bibtex
+@article{Bloch:2021mjw,
+    author = "Bloch, Jacques and Jha, Raghav G. and Lohmayer, Robert and Meister, Maximilian",
+    title = "{Tensor renormalization group study of the 3d $O(2)$ model}",
+    eprint = "2105.08066",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-lat",
+    month = "5",
+    year = "2021"
+}
+```
+ 
 
 Please send questions/suggestions about this repository to rgjha1989@gmail.com
