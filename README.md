@@ -144,11 +144,15 @@ If you used the code `3dOO.py` (or any part of it, say the implementation of tri
 ```bibtex
 @article{Bloch:2021mjw,
     author = "Bloch, Jacques and Jha, Raghav G. and Lohmayer, Robert and Meister, Maximilian",
-    title = "{Tensor renormalization group study of the 3d $O(2)$ model}",
+    title = "{Tensor renormalization group study of the three-dimensional O(2) model}",
     eprint = "2105.08066",
     archivePrefix = "arXiv",
     primaryClass = "hep-lat",
-    month = "5",
+    doi = "10.1103/PhysRevD.104.094517",
+    journal = "Phys. Rev. D",
+    volume = "104",
+    number = "9",
+    pages = "094517",
     year = "2021"
 }
 ```
