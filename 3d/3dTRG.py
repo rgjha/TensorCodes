@@ -1,5 +1,6 @@
 # Tensor formulation of some 3d model
 # This seems to work after changes on Jul 31, 2021
+# Not in use 
 # Tests done on 3d Ising cubic lattice by comparing with triads
 
 import sys

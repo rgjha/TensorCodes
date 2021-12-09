@@ -1,6 +1,4 @@
 # Tensor formulation of a classical statistical 2d model
-# Calculate free energy, internal energy, 
-# susceptibility of free energy, magnetization, critical exponent. 
 # In progress!  March 4, 2019
 # Restarted: Nov 3, 2019
 # VAR = Sqrt[BesselI[l, a]]*Sqrt[BesselI[r, a]]*Sqrt[BesselI[u, a]]*Sqrt[BesselI[d, a]]*BesselI[(l + u - r - d), a*z]; 
