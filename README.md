@@ -2,8 +2,8 @@
 This repository contains a random collection of codes (some in progress!) written mostly in Python & a 3d version of TRG in Julia to study several
 observables in spin and gauge models using HOTRG/TNR/Triad algorithms. For index contractions, mostly NCON [introduced in
 https://arxiv.org/abs/1402.0939] is used since it is faster than "einsum" or "tensordot" in my tests. Recently, 
-I came across "contract" as introduced in https://doi.org/10.21105/joss.00753. The different algorithms employed 
-in these codes were introduced in the following papers: 
+I came across "contract" as introduced in https://doi.org/10.21105/joss.00753 which I find is better. 
+The different algorithms employed in these codes were introduced in the following papers: 
 
 `HOTRG` in `https://arxiv.org/abs/1201.1144`  
 
@@ -156,5 +156,20 @@ If you used the code `3dOO.py` (or any part of it, say the implementation of tri
     year = "2021"
 }
 ```
+
+
+If you used the code `qPotts.ipynb` (or any part of it, say the implementation of triads) given in `3d` directory, please cite:
+
+```bibtex
+@article{Jha:2022pgy,
+    author = "Jha, Raghav G.",
+    title = "{Tensor renormalization of three-dimensional Potts model}",
+    eprint = "2201.01789",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-lat",
+    month = "1",
+    year = "2022"
+}
+```
  
-Please send questions/suggestions about this repository to raghav.govind.jha@gmail.com
+Please send questions/suggestions/comments about this repository to raghav.govind.jha@gmail.com
