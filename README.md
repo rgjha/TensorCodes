@@ -9,7 +9,9 @@ The different algorithms employed in these codes were introduced in the followin
 
 `TNR` in `https://arxiv.org/abs/1412.0732`
 
-`Triad` in `https://arxiv.org/abs/1912.02414`
+`Triad` in `https://arxiv.org/abs/1912.02414` 
+
+As far as I have explored, the bond dimension needed for sufficient convergence in HOTRG is much less than that in triad. The computational cost of triad RG in  a three-dimensional model is approximately O(D^6). 
 
 Example of how index contraction works (in Julia) where I have been playing around with different options: 1) @tensor [https://github.com/Jutho/TensorOperations.jl] 2) @einsum [https://github.com/ahwillia/Einsum.jl] 
 
@@ -100,6 +102,9 @@ s = np.diag(s)
 
 ```
 
+If you get an error like: `LinAlgError: SVD did not converge` then you can try to use: 
+`scipy.linalg.svd(..., lapack_driver='gesvd')`
+
 # Cite 
 
 If you used the code `2dXY_HOTRG.py` or `2dXY.py` (or any part of it) or any other code given in `2d` directory, please cite:
@@ -116,6 +121,20 @@ If you used the code `2dXY_HOTRG.py` or `2dXY.py` (or any part of it) or any oth
     volume = "2008",
     pages = "083203",
     year = "2020"
+}
+```
+
+If you used the code `qPotts.ipynb` (or any part of it, say the implementation of triads) given in `3d` directory, please cite:
+
+```bibtex
+@article{Jha:2022pgy,
+    author = "Jha, Raghav G.",
+    title = "{Tensor renormalization of three-dimensional Potts model}",
+    eprint = "2201.01789",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-lat",
+    month = "1",
+    year = "2022"
 }
 ```
 
@@ -154,21 +173,6 @@ If you used the code `3dOO.py` (or any part of it, say the implementation of tri
     number = "9",
     pages = "094517",
     year = "2021"
-}
-```
-
-
-If you used the code `qPotts.ipynb` (or any part of it, say the implementation of triads) given in `3d` directory, please cite:
-
-```bibtex
-@article{Jha:2022pgy,
-    author = "Jha, Raghav G.",
-    title = "{Tensor renormalization of three-dimensional Potts model}",
-    eprint = "2201.01789",
-    archivePrefix = "arXiv",
-    primaryClass = "hep-lat",
-    month = "1",
-    year = "2022"
 }
 ```
  
