@@ -4,6 +4,8 @@
 # Most precise critical beta result known from MC: 0.4541647(1)
 # An improved version of this code was used to
 # obtain results in arXiv: 2105.08066
+# See 3dOO_v2.py for improved version. 
+# OO is my shorthand for O(2) symmetry. 
 
 import sys
 import math
