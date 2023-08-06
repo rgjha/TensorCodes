@@ -4,6 +4,7 @@
 # D = 53 with Niter = 40 takes ~ 10 hours (The timing is on the Symmetry machine at PI)
 # D = 55 gives memory error on Symmetry!
 # Part of this code was used for https://arxiv.org/abs/2004.06314
+# Fixed typos: 6 August 2023 following request over email from ZXM
 
 import sys
 import math
@@ -17,7 +18,8 @@ from numpy import ndarray
 from scipy.sparse import random as sparse_random
 import time
 import datetime 
-from packages import ncon
+#from ncon import ncon # No longer using this
+from opt_einsum import contract # https://pypi.org/project/opt-einsum/
 
 if len(sys.argv) < 4:
   print("Usage:", str(sys.argv[0]), "<Temperature, T>  <h> <Dbond> " )
@@ -27,9 +29,9 @@ Temp =  float(sys.argv[1])
 beta = float(1.0/Temp)
 h =  float(sys.argv[2])
 D = int(sys.argv[3])
-D_cut= = D 
+D_cut = D 
 
-Niters=40
+Niters = 40
 Ns = int(2**((Niters)))
 Nt = Ns  
 vol = Ns**2   
@@ -103,18 +105,28 @@ def dagger(a):
 
 def CG_step(matrix, in2):
 
-    T = matrix  
-    TI = in2 
+    t = matrix  
+    tim = in2 
 
-    AAdag = ncon([T,T,T,T],[[-2,1,2,5],[-1,5,3,4],[-4,1,2,6],[-3,6,3,4]])
+    AAdag = contract('jabe,iecd,labf,kfcd->ijkl', t, t, t, t)
     U, s, V = tensorsvd(AAdag,[0,1],[2,3],D_cut)  
-    A = ncon([U,T,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
-    B = ncon([U,TI,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
-    AAdag = ncon([A,A,A,A],[[1,-1,2,3],[2,-2,4,5],[1,-3,6,3],[6,-4,4,5]]) # Reuse old memory allocated
-    U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut)  
-    AA = ncon([U,A,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]])
+
+    #A = ncon([U,T,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
+    A = contract('abi,bjdc,acel,edk->ijkl', U, t, t, U)
+    B = contract('abi,bjdc,acel,edk->ijkl', U, tim, t, U) 
+
+    #B = ncon([U,TI,T,U],[[1,2,-1],[2,-2,4,3],[1,3,5,-4],[5,4,-3]])
+
+    #AAdag = ncon([A,A,A,A],[[1,-1,2,3],[2,-2,4,5],[1,-3,6,3],[6,-4,4,5]]) # Reuse old memory allocated
+    AAAAdag = contract('aibc,bjde,akfc,flde->ijkl',A,A,A,A)
+
+    U, s, V = tensorsvd(AAAAdag,[0,1],[2,3],D_cut) 
+
+    AA = contract('abj,iacd,cbke,del->ijkl', U, A, A, U) 
+    #AA = ncon([U,A,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]])
     #BA2 = ncon([U,B,A,U],[[1,2,-2],[-1,1,4,3],[4,2,-3,5],[3,5,-4]]) 
-    BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]]) 
+    BA = contract('abj,iadc,dbke,cel->ijkl', U, B, A, U) 
+    #BA = ncon([U,B,A,U],[[1,2,-2],[-1,1,3,4],[3,2,-3,5],[4,5,-4]]) 
     # BA and BA2 are same!
     
     maxAA = np.max(AA)
@@ -129,14 +141,14 @@ def get_tensor():
     for i in range (-Dn,Dn+1):
         L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
  
-    out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) 
-    # Alt: T = np.einsum("i,j,k,l->ijkl", L, L, L, L)
+    #out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) 
+    out = contract("i,j,k,l->ijkl", L, L, L, L)
     for l in range (-Dn,Dn+1):
         for r in range (-Dn,Dn+1):
             for u in range (-Dn,Dn+1):
                 for d in range (-Dn,Dn+1):
                     index = l+u-r-d
-                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= sp.special.iv(index, betah)
+                    out[l+Dn][r+Dn][u+Dn][d+Dn] *= sp.special.iv(index, beta*h)
 
     if D_cut > 47:
         return out.astype(np.float32)
@@ -150,7 +162,8 @@ def get_site_mag():
     for i in range (-Dn,Dn+1):
         L[i+Dn] = np.sqrt(sp.special.iv(i, beta))
  
-    out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) 
+    #out = ncon((L, L, L, L),([-1],[-2],[-3],[-4])) 
+    out = contract("i,j,k,l->ijkl", L, L, L, L)
     for l in range (-Dn,Dn+1):
         for r in range (-Dn,Dn+1):
             for u in range (-Dn,Dn+1):
@@ -166,8 +179,6 @@ def get_site_mag():
 
 if __name__ == "__main__":
 
- 
-    betah=beta*h
     T = get_tensor()
     Tim = get_site_mag()
 
@@ -175,7 +186,7 @@ if __name__ == "__main__":
     T /= norm 
     Tim /= norm 
 
-    Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
+    #Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
     C = 0.0
     N = 1.0
     C = np.log(norm)
@@ -185,22 +196,26 @@ if __name__ == "__main__":
         
         T, Tim, norm = CG_step(T, Tim)
         N *= 4.0
-        C += (np.log(norm)/4**(i+1))
+        C += (math.log(norm)/4**(i+1))
          
         if i == Niters-1:
 
-            Z1 = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
-            Z = ncon([Z1,Z1],[[1,2,3,4],[2,1,4,3]])
-            Free1 = -Temp*(C + (np.log(Z)/(4**(Niters))))
-            P = ncon([Tim,T],[[1,-1,2,-2],[2,-3,1,-4]])
-            P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]])  
-            r = (P/Z)
-            print ("Free energy -> ", Free)
-            print ("Mag. -> ", r)
+            #Z1 = ncon([T,T],[[1,-1,2,-2],[2,-3,1,-4]])
+            Z1 = contract('aibj,bkal->ijkl', T, T)
+            #Z = ncon([Z1,Z1],[[1,2,3,4],[2,1,4,3]])
+            Z = contract('abcd,badc->''', Z1, Z1)
+            Free = -Temp*(C + (np.log(Z)/(4**(Niters))))
+            #P = ncon([Tim,T],[[1,-1,2,-2],[2,-3,1,-4]])
+            P = contract('aibj,bkal->ijkl', Tim, T)
+            #P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]]) 
+            P = contract('abcd,badc->''', P, Z1) 
+            mag = (P/Z)
+            print ("Free energy density = ", Free)
+            print ("Magnetization = ", mag)
 
                
     f=open("mag_data.txt", "a+")    
-    f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \t %4.13f \n" % (Temp, Free, r, Niters, D_cut, h)) 
+    f.write("%4.10f \t %4.10f \t %4.10f \t %2.0f \t %2.0f \t %4.13f \n" % (Temp, Free, mag, Niters, D_cut, h)) 
     f.close()         
-    print (Temp,h,Free,r)
+    print (Temp,h,Free,mag)
     print ("COMPLETED: " , datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
