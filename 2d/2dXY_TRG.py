@@ -185,7 +185,7 @@ if __name__ == "__main__":
         
         T, Tim, norm = CG_step(T, Tim)
         N *= 4.0
-        C += C + (np.log(norm)/4**(i+1))
+        C += (np.log(norm)/4**(i+1))
          
         if i == Niters-1:
 
