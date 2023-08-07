@@ -139,7 +139,7 @@ If you used the code `qPotts.ipynb` (or any part of it, say the implementation o
 ```
 
 
-If you used the code `2d_trg.py` (or any part of it) or any code given in `2d` directory, please cite:
+If you used the code `2d_SU2_TRG.py` (or any part of it) or any code given in `2d` directory, please cite:
 
 ```bibtex
 @article{Bazavov:2019qih,
