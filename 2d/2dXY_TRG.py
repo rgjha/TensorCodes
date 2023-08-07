@@ -94,7 +94,7 @@ def zeta_proxy(A):
     w, U = LA.eigh(A) 
     idx = w.argsort()[::-1]
     s = w[idx]
-    return 1.0/(np.log(s[0]/s[1]))
+    return 1.0/(math.log(s[0]/s[1]))
 
 
 ##############################
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     #Z = ncon([T,T,T,T],[[7,5,3,1],[3,6,7,2],[8,1,4,5],[4,2,8,6]])
     C = 0.0
     N = 1.0
-    C = np.log(norm)
+    C = math.log(norm)
 
     for i in range (Niters):
 
@@ -204,7 +204,7 @@ if __name__ == "__main__":
             Z1 = contract('aibj,bkal->ijkl', T, T)
             #Z = ncon([Z1,Z1],[[1,2,3,4],[2,1,4,3]])
             Z = contract('abcd,badc->''', Z1, Z1)
-            Free = -Temp*(C + (np.log(Z)/(4**(Niters))))
+            Free = -Temp*(C + (math.log(Z)/(4**(Niters))))
             #P = ncon([Tim,T],[[1,-1,2,-2],[2,-3,1,-4]])
             P = contract('aibj,bkal->ijkl', Tim, T)
             #P = ncon([P,Z1],[[1,2,3,4],[2,1,4,3]]) 
