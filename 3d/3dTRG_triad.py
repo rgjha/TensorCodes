@@ -150,6 +150,7 @@ def coarse_graining(in1, in2, in3, in4):
 
     S1 = contract('xyd,iyj->xidj', A, np.conjugate(A))
     a = np.shape(S1)[0] * np.shape(S1)[1]
+    b = np.shape(S1)[2] * np.shape(S1)[3]
     S1 = np.reshape(S1,(a,b))
     Tmp = contract('bizz->bi', R2)
     R3 = contract('awb,ijk,bk->aiwj', B, np.conjugate(B), Tmp)
