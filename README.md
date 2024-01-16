@@ -175,5 +175,25 @@ If you used the code `3dOO.py` (or any part of it, say the implementation of tri
     year = "2021"
 }
 ```
+
+If you are looking for accelerating some of these codes using GPU, we addressed that in the paper mentioned below
+
+```bibtex
+@article{Jha:2023bpn,
+    author = "Jha, Raghav G. and Samlodia, Abhishek",
+    title = "{GPU-acceleration of tensor renormalization with PyTorch using CUDA}",
+    eprint = "2306.00358",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-lat",
+    reportNumber = "JLAB-THY-23-3903",
+    doi = "10.1016/j.cpc.2023.108941",
+    journal = "Comput. Phys. Commun.",
+    volume = "294",
+    pages = "108941",
+    year = "2024"
+}
+```
+
+The standalone code for GPU-accleration can be found here: https://zenodo.org/records/8190788
  
 Please send questions/suggestions/comments about this repository to raghav.govind.jha@gmail.com
