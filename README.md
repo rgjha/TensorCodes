@@ -1,5 +1,5 @@
 # TensorCodes
-This repository contains a random collection of codes (some in progress!) written mostly in Python & a 3d version of TRG in Julia to study several
+This repository contains a random collection of codes written mostly in Python & a 3d version of TRG in Julia to study several
 observables in spin and gauge models using HOTRG/TNR/Triad algorithms. For index contractions, mostly NCON [introduced in
 https://arxiv.org/abs/1402.0939] is used since it is faster than "einsum" or "tensordot" in my tests. Recently, 
 I came across "contract" as introduced in https://doi.org/10.21105/joss.00753 which I find is better. 
@@ -11,11 +11,16 @@ The different algorithms employed in these codes were introduced in the followin
 
 `Triad` in `https://arxiv.org/abs/1912.02414` 
 
-As far as I have explored, the bond dimension needed for sufficient convergence in HOTRG is much less than that in triad. The computational cost of triad RG in  a three-dimensional model is approximately O(D^6). 
+As far as I have explored, the bond dimension needed for sufficient convergence in HOTRG is much less than that in the triad formulation. 
+The computational cost of triad RG in a three-dimensional model is approximately O(D^6). However, as shown in one of our papers
+[arXiv: 2406.10081], ATRG probably does better than triad TRG. So, any future improvement in the algorithm should take that
+as an inspiration. It is probably also a reason why I know of no papers written in 4D using triads but several using ATRG
+such as [https://arxiv.org/abs/1911.12954]. 
 
-Example of how index contraction works (in Julia) where I have been playing around with different options: 1) @tensor [https://github.com/Jutho/TensorOperations.jl] 2) @einsum [https://github.com/ahwillia/Einsum.jl] 
+These days, some folks are writing tensor codes in Julia, an example of how index contraction works (in Julia) where I played
+around with different options back in 2021 are: 1) @tensor [https://github.com/Jutho/TensorOperations.jl] 2) @einsum [https://github.com/ahwillia/Einsum.jl] 
 
-In particular, in TensorOperations, there is also added feature for NCON 
+In particular, in TensorOperations, there is also an added feature for NCON 
 [https://jutho.github.io/TensorOperations.jl/stable/indexnotation/#Dynamical-tensor-network-contractions-with-ncon-and-@ncon] 
 
 For example: to execute `A_ijkl` times `B_ijpr` one can use different options as:
@@ -82,8 +87,8 @@ from sklearn.utils.extmath import randomized_svd
 U, s, V = randomized_svd(T, n_components=D, n_iter=5,random_state=5)
 ```
 
-There is also additional option of using PRIMME [https://pypi.org/project/primme/] or even SymPy's `svds` as shown below
-where `D` is the number of singular values in escending order you want to keep. 
+There is also an additional option of using PRIMME [https://pypi.org/project/primme/] or even SymPy's `svds` as shown below
+where `D` is the number of singular values in descending order you want to keep. 
 
 ```python 
 from scipy.sparse.linalg import svds, eigs
@@ -157,6 +162,27 @@ If you used the code `2d_SU2_TRG.py` (or any part of it) or any code given in `2
 }
 ```
 
+We studied the 3d SU(2) principal chiral model also and the setting up of the initial tensor 
+can be found in the `3d_PCM.py` code given in `3d` directory. The code eventually used to produce 
+plots in the paper was by Shinichiro and Judah. Please cite our paper if you find it useful. 
+
+```bibtex
+@article{Akiyama:2024qgv,
+    author = "Akiyama, Shinichiro and Jha, Raghav G. and Unmuth-Yockey, Judah",
+    title = "{SU(2) principal chiral model with tensor renormalization group on a cubic lattice}",
+    eprint = "2406.10081",
+    archivePrefix = "arXiv",
+    primaryClass = "hep-lat",
+    reportNumber = "JLAB-THY-24-4047, UTCCS-P-154, FERMILAB-PUB-24-0308-T",
+    doi = "10.1103/PhysRevD.110.034519",
+    journal = "Phys. Rev. D",
+    volume = "110",
+    number = "3",
+    pages = "034519",
+    year = "2024"
+}
+```
+
 
 If you used the code `3dOO.py` (or any part of it, say the implementation of triads) given in `3d` directory, please cite:
 
@@ -176,7 +202,8 @@ If you used the code `3dOO.py` (or any part of it, say the implementation of tri
 }
 ```
 
-If you are looking for accelerating some of these codes using GPU, we addressed that in the paper mentioned below
+If you are looking to accelerate some of these codes using GPU, we addressed that in the paper mentioned below
+with code at https://zenodo.org/records/8190788
 
 ```bibtex
 @article{Jha:2023bpn,
@@ -194,6 +221,5 @@ If you are looking for accelerating some of these codes using GPU, we addressed 
 }
 ```
 
-The standalone code for GPU-accleration can be found here: https://zenodo.org/records/8190788
  
 Please send questions/suggestions/comments about this repository to raghav.govind.jha@gmail.com
