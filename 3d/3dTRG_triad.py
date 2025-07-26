@@ -1,4 +1,4 @@
-# Tensor formulation of 3d model using triad method 
+# Tensor formulation of 3d classical Ising model using triad method 
 # Free energy at T = 4.5115 is -3.5093(2) in infinite 'D' limit. 
 # Ref: https://arxiv.org/abs/1912.02414
 # Now using "contract" which seems much faster than NCON

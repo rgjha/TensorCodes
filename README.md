@@ -11,10 +11,12 @@ The different algorithms employed in these codes were introduced in the followin
 
 `Triad` in `https://arxiv.org/abs/1912.02414` 
 
-As far as I have explored, the bond dimension needed for sufficient convergence in HOTRG is much less than that in the triad formulation. 
+`ATRG` in `https://arxiv.org/abs/1906.02007`
+
+As far as I have explored, the bond dimension needed for sufficient convergence in HOTRG is less than that in the triad formulation. 
 The computational cost of triad RG in a three-dimensional model is approximately O(D^6). However, as shown in one of our papers
-[arXiv: 2406.10081], ATRG probably does better than triad TRG. So, any future improvement in the algorithm should take that
-as an inspiration. It is probably also a reason why I know of no papers written in 4D using triads but several using ATRG
+[arXiv: 2406.10081], ATRG does better than triad TRG. So, any future improvement in the algorithm should take that
+as an inspiration. It is probably also a reason why there are no papers written in 4D using triads but several using ATRG
 such as [https://arxiv.org/abs/1911.12954]. 
 
 These days, some folks are writing tensor codes in Julia, an example of how index contraction works (in Julia) where I played
@@ -221,5 +223,4 @@ with code at https://zenodo.org/records/8190788
 }
 ```
 
- 
 Please send questions/suggestions/comments about this repository to raghav.govind.jha@gmail.com
